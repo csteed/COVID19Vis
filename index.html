@@ -94,6 +94,10 @@
       return document.getElementById('movingRangeCheckbox').checked;
     }
 
+    const movingRangeCheckboxChanged = () => {
+      createCharts();
+    }
+
     const stateSelectChanged = () => {
       const selectedCountry = getSelectedCountry();
       const selectedState = getSelectedState();
@@ -254,7 +258,7 @@
               // if (countryData.values) {
                 series.push({
                   name: countryData.name,
-                  values: countryData.values
+                  values: showMovingRange ? getMovingRangeValues(countryData.values) : countryData.values
                 });
               // }
             });
@@ -275,13 +279,15 @@
               country.states.forEach(state => {
                 series.push({
                   name: state.name,
-                  values: state.values
+                  // values: state.values
+                  values: showMovingRange ? getMovingRangeValues(state.values) : state.values
                 });
               });
             } else {
               series.push({
                 name: country.name,
-                values: country.values
+                values: showMovingRange ? getMovingRangeValues(country.values) : country.values
+                // values: country.values
               });
             }
             
@@ -334,6 +340,7 @@
       
       const line = d3.line()
         .defined(d => !isNaN(d))
+        .curve(d3.curveMonotoneX)
         .x((d, i) => x(data.dates[i]))
         .y(d => y(d));
         // .y(d => d === 0 ? y.range()[0] : y(d));
