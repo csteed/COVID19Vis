@@ -36,25 +36,25 @@
       <a href="https://github.com/CSSEGISandData/COVID-19" target="_blank">JHU CSSE</a> 
       data repository. 
     </p>
+    <h3>Instructions:</h3>
     <p>
-      Use the dropdown to select a country/region and see its 
-      state/province counts, if available. If these are not available, the data for 
-      the selected country is shown. Select a state/province using the dropdown to 
-      highlight it in the charts. Hover over the chart to interactively highlight
-      lines.
+      <strong>Show Daily Change: </strong>If checked, charts show daily change. If unchecked, charts show case totals.<br/>
+      <strong>Selected Country/Region: </strong>Select 'All Countries' to see country statistics. Select an individual country to see state/province statistics, if available. If no state/province statistics are stored, the totals will be shown.<br/>
+      <strong>Highlight State/Province: </strong>Select a country to highlight its line in the charts.<br/>
+      <strong>Hover Query: </strong>Hover over lines in the chart to highlight values.<br/>
     </p>
 
     <h3>Controls:</h3>
     <input id="movingRangeCheckbox" type="checkbox" onChange="movingRangeCheckboxChanged()"/>
-    <label for="movingRangeCheckbox">Show Value Changes</label>
+    <label for="movingRangeCheckbox">Show Daily Change</label>
     <br/><br/>
 
-    <label for="countrySelect">Selected Country/Region: </label>
+    <label for="countrySelect">Select Country/Region: </label>
     <select id="countrySelect" onChange="countrySelectChanged()">
     </select>
     <br/><br/>
 
-    <label for="stateSelect">Selected State/Province: </label>
+    <label for="stateSelect">Highlight State/Province: </label>
     <select id="stateSelect" onChange="stateSelectChanged()" disabled>
     </select>
     <br/><br/>
@@ -102,7 +102,7 @@
       const selectedCountry = getSelectedCountry();
       const selectedState = getSelectedState();
       allFileData.forEach(fileData => {
-        console.log(fileData);
+        // console.log(fileData);
         const country = fileData.countries.find(d => d.name === selectedCountry);
         const state = country.states.find(d => d.name === selectedState);
         const path = d3.select(`#${fileData.name}`).select('svg').selectAll('path');
@@ -114,8 +114,6 @@
           path.style("mix-blend-mode", "multiply").attr("stroke", null);
         }
       });
-      // path.attr("stroke", d => d === s ? null : "blue").filter(d => d === s).raise();
-      // createCharts();
     }
 
     const countrySelectChanged = () => {
@@ -186,7 +184,7 @@
 
             countryNode.values.forEach(stateNode => {
               var values = dates.map(date => stateNode.values[0][date]);
-              if (stateNode.key !== "null" && stateNode.key !== countryNode.key) {
+              if (stateNode.key !== "null") {
                 if (stateNode.key.includes(",")) {
                   country.counties.push({
                     name: stateNode.key,
@@ -199,33 +197,24 @@
                   });
                 }
               } else {
-                // if (stateNode.key === countryNode.key) {
-                //   country.states.push({
-                //     name: 'Other',
-                //     values: values
-                //   });
-                // }
-                // console.log(country);
-                // country.values = [];
-                checkValues = true;
                 country.values = values;
               }
             });
 
-            if (country.name === 'US') {
-              console.log(fileData.filename);
-              console.log(country);
-              let checkValues = Array.from(country.states[0].values);
-              for (let i = 1; i < country.states.length; i++) {
-                for (let j = 0; j < country.values.length; j++) {
-                  checkValues[j] = checkValues[j] + country.states[i].values[j];
-                }
-              }
+            // if (country.name === 'US') {
+            //   console.log(fileData.filename);
+            //   console.log(country);
+            //   let checkValues = Array.from(country.states[0].values);
+            //   for (let i = 1; i < country.states.length; i++) {
+            //     for (let j = 0; j < country.values.length; j++) {
+            //       checkValues[j] = checkValues[j] + country.states[i].values[j];
+            //     }
+            //   }
 
-              console.log(country.values);
-              console.log(checkValues);
-              console.log(d3.sum(checkValues));
-            }
+            //   console.log(country.values);
+            //   console.log(checkValues);
+            //   console.log(d3.sum(checkValues));
+            // }
 
             if (!country.values) {
               // country.values = [];
@@ -287,7 +276,7 @@
             chartData.push({
               name: fileData.name,
               title: fileData.title,
-              y: fileData.y,
+              y: getShowMovingRange() ? "Daily Change" : "Cases", //fileData.y,
               series: series,
               dates: fileData.dates
             });
@@ -316,7 +305,7 @@
             chartData.push({
               name: fileData.name,
               title: fileData.title,
-              y: fileData.y,
+              y: getShowMovingRange() ? "Daily Change" : "Cases",
               series: series,
               dates: fileData.dates
             });
@@ -327,7 +316,6 @@
     }
 
     const createChart = (divID, data) => {
-      // console.log(data);
       const divWidth = document.getElementById(divID).clientWidth;
       const width = divWidth;
       const height = chartHeight;
@@ -512,13 +500,15 @@
       }
     };
 
-    const files = ['data/time_series_19-covid-Confirmed.csv', 
-      'data/time_series_19-covid-Deaths.csv',
-      'data/time_series_19-covid-Recovered.csv'];
+    // const files = ['data/time_series_19-covid-Confirmed.csv', 
+    //   'data/time_series_19-covid-Deaths.csv',
+    //   'data/time_series_19-covid-Recovered.csv'];
     const remoteFiles = ['https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Confirmed.csv',
       'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Deaths.csv',
       'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Recovered.csv']
+
     loadFiles(remoteFiles);
+    // loadFiles(files);
 
     // d3.csv('https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Confirmed.csv', d3.autoType)
     // d3.csv("data/time_series_19-covid-Confirmed.csv", d3.autoType)
