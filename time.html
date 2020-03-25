@@ -30,26 +30,32 @@
   <body>
     <h2>COVID-19 Index Chart Visualization</h2>
     <h3>Description:</h3>
+    <p>
+      This page shows counts of confirmed cases, deaths, and recovered cases for the
+      COVID-19 pandemic. The data is pulled from the 
+      <a href="https://github.com/CSSEGISandData/COVID-19" target="_blank">JHU CSSE</a> 
+      data repository. 
+    </p>
+    <h3>Instructions:</h3>
+    <p>
+      <strong>Show Daily Change: </strong>If checked, charts show daily change. If unchecked, charts show case totals.<br/>
+      <strong>Selected Country/Region: </strong>Select 'All Countries' to see country statistics. Select an individual country to see state/province statistics, if available. If no state/province statistics are stored, the totals will be shown.<br/>
+      <strong>Highlight State/Province: </strong>Select a country to highlight its line in the charts.<br/>
+      <strong>Hover Query: </strong>Hover over lines in the chart to highlight values.<br/>
+    </p>
 
     <h3>Controls:</h3>
-    <label for="countrySelect">Country: </label>
+    <input id="movingRangeCheckbox" type="checkbox" onChange="movingRangeCheckboxChanged()"/>
+    <label for="movingRangeCheckbox">Show Daily Change</label>
+    <br/><br/>
+
+    <label for="countrySelect">Select Country/Region: </label>
     <select id="countrySelect" onChange="countrySelectChanged()">
     </select>
     <br/><br/>
 
-    <label for="countryDetailSelect">Country Detail: </label>
-    <select id="countryDetailSelect" onChange="countryDetailSelectChanged()" disabled>
-      <option selected>Country</option>
-    </select>
-    <br/><br/>
-
-    <label for="stateSelect">State/Province: </label>
+    <label for="stateSelect">Highlight State/Province: </label>
     <select id="stateSelect" onChange="stateSelectChanged()" disabled>
-    </select>
-    <br/><br/>
-
-    <label for="countySelect">US County: </label>
-    <select id="countySelect" onChange="countySelectChanged()" disabled>
     </select>
     <br/><br/>
 
@@ -64,7 +70,6 @@
     let parseTime = d3.timeParse("%m/%d/%Y");
     let allFileData;
     let chartData;
-    let svg;
     const chartHeight = 200;
     const margin = {top: 20, right: 40, bottom: 20, left: 60};
 
@@ -77,15 +82,42 @@
       return select.options[select.selectedIndex].text;
     }
 
-    const getSelectedCountryDetail = () => {
-      const select = document.getElementById('countryDetailSelect');
-      return select.options[select.selectedIndex].text;
+    const getSelectedState = () => {
+      const select = document.getElementById('stateSelect');
+      if (select.selectedIndex >= 0 && select.selectedIndex < select.options.length) {
+        return select.options[select.selectedIndex].text;
+      }
+      return null;
+    }
+
+    const getShowMovingRange = () => {
+      return document.getElementById('movingRangeCheckbox').checked;
+    }
+
+    const movingRangeCheckboxChanged = () => {
+      createCharts();
+    }
+
+    const stateSelectChanged = () => {
+      const selectedCountry = getSelectedCountry();
+      const selectedState = getSelectedState();
+      allFileData.forEach(fileData => {
+        // console.log(fileData);
+        const country = fileData.countries.find(d => d.name === selectedCountry);
+        const state = country.states.find(d => d.name === selectedState);
+        const path = d3.select(`#${fileData.name}`).select('svg').selectAll('path');
+        if (state) {
+          // const path = d3.select(`#${fileData.name}`).select('svg').selectAll('path');
+          path.style("mix-blend-mode", null).attr("stroke", "#ddd");
+          path.attr("stroke", d => d.name === state.name ? null : "#ddd").filter(d => d.name === state.name).raise();
+        } else {
+          path.style("mix-blend-mode", "multiply").attr("stroke", null);
+        }
+      });
     }
 
     const countrySelectChanged = () => {
       populateStateSelect();
-      populateCountySelect();
-      populateCountryDetailSelect();
       createCharts();
     }
 
@@ -96,28 +128,6 @@
         select.options[select.options.length] = new Option(country);
       });
     };
-
-    const populateCountryDetailSelect = () => {
-      const select = document.getElementById('countryDetailSelect');
-      for (let i = select.options.length - 1; i >= 0; i--) {
-        select.remove(i);
-      }
-
-      const selectedCountry = getSelectedCountry();
-      if (selectedCountry === 'All Countries') {
-        select.disabled = true;
-      } else {
-        var detailOptions = [];
-        var selectedCountryData = allFileData[0].countries.find(d => d.name === selectedCountry);
-        if (selectedCountryData.values.length > 0) {detailOptions.push('Country')};
-        if (selectedCountryData.states.length > 0) {detailOptions.push('State/Province')};
-        if (selectedCountryData.counties.length > 0) {detailOptions.push('County')};
-        select.disabled = false;
-        detailOptions.forEach(option => {
-          select.options[select.options.length] = new Option(option);
-        });
-      }
-    }
 
     const populateStateSelect = () => {
       const select = document.getElementById('stateSelect');
@@ -141,47 +151,7 @@
           select.disabled = true;
         }
       }
-    }
-
-    const populateCountySelect = () => {
-      const select = document.getElementById('countySelect');
-      for (let i = select.options.length - 1; i >= 0; i--) {
-        select.remove(i);
-      }
-
-      const selectedCountry = getSelectedCountry();
-      if (selectedCountry === 'All Countries') {
-        select.disabled = true;
-      } else {
-        var selectedCountryData = allFileData[0].countries.find(d => d.name === selectedCountry);
-        if (selectedCountryData && selectedCountryData.counties.length > 0) {
-          const countyNames = selectedCountryData.counties.map(d => d.name);
-          console.log(countyNames);
-          countyNames.unshift('All Counties');
-          countyNames.forEach(countyName => {
-            select.options[select.options.length] = new Option(countyName);
-          })
-          select.disabled = false;
-        } else {
-          select.disabled = true;
-        }
-      }
-    }
-
-    const countryDetailSelectChanged = () => {
-      const selectedDetail = getSelectedCountryDetail();
-      if (selectedDetail === 'Country') {
-        document.getElementById('stateSelect').disabled = true;
-        document.getElementById('countySelect').disabled = true;
-      } else if (selectedDetail === 'State/Province') {
-        document.getElementById('stateSelect').disabled = false;
-        document.getElementById('countySelect').disabled = true;
-      } else if (selectedDetail === 'County') {
-        document.getElementById('stateSelect').disabled = true;
-        document.getElementById('countySelect').disabled = false;
-      }
-      createCharts();
-    }
+    };
 
     const processData = (rawFileData) => {
       if (rawFileData) {
@@ -202,6 +172,8 @@
 
           var countries = [];
           nestedData.forEach(countryNode => {
+            var checkValues = false;
+
             var country = {
               name: countryNode.key,
               values: null,
@@ -212,7 +184,7 @@
 
             countryNode.values.forEach(stateNode => {
               var values = dates.map(date => stateNode.values[0][date]);
-              if (stateNode.key !== "null" && stateNode.key !== countryNode.key) {
+              if (stateNode.key !== "null") {
                 if (stateNode.key.includes(",")) {
                   country.counties.push({
                     name: stateNode.key,
@@ -229,7 +201,24 @@
               }
             });
 
+            // if (country.name === 'US') {
+            //   console.log(fileData.filename);
+            //   console.log(country);
+            //   let checkValues = Array.from(country.states[0].values);
+            //   for (let i = 1; i < country.states.length; i++) {
+            //     for (let j = 0; j < country.values.length; j++) {
+            //       checkValues[j] = checkValues[j] + country.states[i].values[j];
+            //     }
+            //   }
+
+            //   console.log(country.values);
+            //   console.log(checkValues);
+            //   console.log(d3.sum(checkValues));
+            // }
+
             if (!country.values) {
+              // country.values = [];
+              // console.log(country);
               // need to sum up states to get country totals
               // console.log(country.name + " needs rollup");
               country.values = Array.from(country.states[0].values);
@@ -255,10 +244,20 @@
       }
     };
 
+    const getMovingRangeValues = (values) => {
+      let movingRangeValues = [];
+      movingRangeValues.push(0);
+      for (let i = 1; i < values.length; i++) {
+        movingRangeValues[i] = values[i] - values[i-1];
+      }
+      return movingRangeValues;
+    }
+
     const loadData = () => {
       if (allFileData) {
         const selectedCountry = getSelectedCountry();
-        console.log(selectedCountry);
+        const showMovingRange = getShowMovingRange();
+        // console.log(selectedCountry);
 
         chartData = [];
 
@@ -270,14 +269,14 @@
               // if (countryData.values) {
                 series.push({
                   name: countryData.name,
-                  values: countryData.values
+                  values: showMovingRange ? getMovingRangeValues(countryData.values) : countryData.values
                 });
               // }
             });
             chartData.push({
               name: fileData.name,
               title: fileData.title,
-              y: fileData.y,
+              y: getShowMovingRange() ? "Daily Change" : "Cases", //fileData.y,
               series: series,
               dates: fileData.dates
             });
@@ -286,118 +285,37 @@
           allFileData.forEach(fileData => {
             var series = [];
             const country = fileData.countries.find(d => d.name === selectedCountry);
-            const selectedCountryDetail = getSelectedCountryDetail();
-            if (selectedCountryDetail === 'State/Province') {
-              if (country.states.length > 0) {
-                country.states.forEach(state => {
-                  series.push({
-                    name: state.name,
-                    values: state.values
-                  });
-                });
-              } else {
+            
+            if (country.states.length > 0) {
+              country.states.forEach(state => {
                 series.push({
-                  name: country.name,
-                  values: country.values
+                  name: state.name,
+                  // values: state.values
+                  values: showMovingRange ? getMovingRangeValues(state.values) : state.values
                 });
-              }
-            } else if (selectedCountryDetail === 'County') {
-              if (country.counties.length > 0) {
-                country.counties.forEach(county => {
-                  series.push({
-                    name: county.name,
-                    values: county.values
-                  });
-                });
-              } else {
-                series.push({
-                  name: country.name,
-                  values: country.values
-                });
-              }
+              });
+            } else {
+              series.push({
+                name: country.name,
+                values: showMovingRange ? getMovingRangeValues(country.values) : country.values
+                // values: country.values
+              });
             }
             
             chartData.push({
               name: fileData.name,
               title: fileData.title,
-              y: fileData.y,
+              y: getShowMovingRange() ? "Daily Change" : "Cases",
               series: series,
               dates: fileData.dates
             });
           });
         }
       }
-
       console.log(chartData);
     }
 
-    const oldloadData = () => {
-      if (allFileData) {
-        const selectedCountry = getSelectedCountry();
-        console.log(selectedCountry);
-
-        chartData = [];
-        allFileData.forEach(fileData => {
-          const nestedCountries = d3.nest()
-            .key(d => d["Country/Region"])
-            .entries(fileData.data);
-          console.log(nestedCountries);
-
-          filteredData = fileData.data.filter(d => d["Country/Region"] === 'US').filter(d => !d["Province/State"].includes(','))
-          const nestedGroups = d3.nest()
-            .key(d => d["Country/Region"])
-            .key(d => d["Province/State"])
-            .entries(filteredData);
-
-          // console.log(nestedGroups);
-
-          // extract dates
-          var dates = [];
-          fileData.data.columns.forEach(column => {
-            const date = parseTime(column);
-            if (date) {
-              dates.push(column);
-            }
-          });
-
-          // extract series data
-          var series = [];
-          nestedGroups.forEach(countryNode => {
-            countryNode.values.forEach(stateNode => {
-              var values = [];
-              values = dates.map(date => {
-                return stateNode.values[0][date];
-                // return {
-                //   date: parseTime(date),
-                //   value: stateNode.values[0][date]
-                // }
-              });
-
-              series.push({
-                // country: countryNode.key,
-                // state: stateNode.key,
-                name: `${countryNode.key}:${stateNode.key}`,
-                values: values
-              });
-            });
-          });
-
-          var name = fileData.filename.includes("Confirmed") ? "Confirmed" : fileData.filename.includes("Deaths") ? "Death" : fileData.filename.includes("Recovered") ? "Recovered" : "Other";
-          chartData.push({
-            name: name,
-            title: `${name} Case Counts`,
-            y: "Cases",
-            series: series,
-            dates: dates.map(d => parseTime(d))
-          });
-
-          console.log(chartData);
-        });
-      }
-    };
-
     const createChart = (divID, data) => {
-      // console.log(data);
       const divWidth = document.getElementById(divID).clientWidth;
       const width = divWidth;
       const height = chartHeight;
@@ -405,7 +323,7 @@
       const svg = d3.select(`#${divID}`).append("svg")
         .attr("width", width + margin.left + margin.right)
         .attr("height", height + margin.top + margin.bottom);
-        
+
       const x = d3.scaleUtc()
         .domain(d3.extent(data.dates))
         .range([margin.left, width - margin.right]);
@@ -418,7 +336,8 @@
       const xAxis = g => g
         .attr("transform", `translate(0, ${height - margin.bottom})`)
         .call(d3.axisBottom(x).ticks(width / 80).tickSizeOuter(0))
-      
+        .call(g => g.select(".domain").remove());
+
       const yAxis = g => g
         .attr("transform", `translate(${margin.left},0)`)
         .call(d3.axisLeft(y))
@@ -431,6 +350,7 @@
       
       const line = d3.line()
         .defined(d => !isNaN(d))
+        .curve(d3.curveMonotoneX)
         .x((d, i) => x(data.dates[i]))
         .y(d => y(d));
         // .y(d => d === 0 ? y.range()[0] : y(d));
@@ -447,7 +367,7 @@
       svg.append("g").call(xAxis);
       svg.append("g").call(yAxis);
 
-      const path = svg.append("g")
+      path = svg.append("g")
           .attr("fill", "none")
           .attr("stroke", "dodgerblue")
           .attr("stroke-width", 1.5)
@@ -493,7 +413,20 @@
           const i = xm - data.dates[i0] > data.dates[i1] - xm ? i1 : i0;
           const s = d3.least(data.series, d => Math.abs(d.values[i] - ym));
           // console.log(`date: ${data.dates[i]}  value: ${s.values[i]}`);
-          path.attr("stroke", d => d === s ? null : "#ddd").filter(d => d === s).raise();
+          // console.log(s);
+          const selectedState = getSelectedState();
+          if (selectedState != null) {
+            if (selectedState !== 'All States/Provinces') {
+              // console.log(selectedState);
+              path.attr("stroke", d => (d === s || d.name === selectedState) ? null : "#ddd").filter(d => (d === s || d.name === selectedState)).raise();
+            } else {
+              path.attr("stroke", d => d === s ? null : "#ddd").filter(d => d === s).raise();
+            }
+          } else {
+            path.attr("stroke", d => d === s ? null : "#ddd").filter(d => d === s).raise();
+          }
+          // path.attr("stroke", d => d === s ? null : "#ddd").filter(d => d === s).raise();
+          
           dot.attr("transform", `translate(${x(data.dates[i])},${y(s.values[i])})`);
           dot.select("text").text(`${s.name}: ${s.values[i]}`);
         }
@@ -504,7 +437,17 @@
         }
 
         function left() {
-          path.style("mix-blend-mode", "multiply").attr("stroke", null);
+          const selectedState = getSelectedState();
+          if (selectedState != null) {
+            if (selectedState !== 'All States/Provinces') {
+              path.attr("stroke", d => d.name === selectedState ? null : "#ddd").filter(d => d.name === selectedState).raise();
+            } else {
+              path.style("mix-blend-mode", "multiply").attr("stroke", null);
+            }
+          } else {
+            path.style("mix-blend-mode", "multiply").attr("stroke", null);
+          }
+          // path.style("mix-blend-mode", "multiply").attr("stroke", null);
           dot.attr("display", "none");
         }
       }
@@ -526,8 +469,6 @@
         }
       }
     };
-
-    
 
     const loadFiles = (filenames) => {
       if (filenames) {
@@ -559,13 +500,15 @@
       }
     };
 
-    const files = ['data/time_series_19-covid-Confirmed.csv', 
-      'data/time_series_19-covid-Deaths.csv',
-      'data/time_series_19-covid-Recovered.csv'];
+    // const files = ['data/time_series_19-covid-Confirmed.csv', 
+    //   'data/time_series_19-covid-Deaths.csv',
+    //   'data/time_series_19-covid-Recovered.csv'];
     const remoteFiles = ['https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Confirmed.csv',
       'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Deaths.csv',
       'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Recovered.csv']
+
     loadFiles(remoteFiles);
+    // loadFiles(files);
 
     // d3.csv('https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Confirmed.csv', d3.autoType)
     // d3.csv("data/time_series_19-covid-Confirmed.csv", d3.autoType)
