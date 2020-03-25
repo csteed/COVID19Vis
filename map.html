@@ -2,8 +2,8 @@
 <meta charset="utf-8" />
 <html>
   <head>
-    <!-- <script src="https://d3js.org/d3.v5.min.js"></script> -->
-    <script src="js/d3.min.js"></script>
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <!-- <script src="js/d3.min.js"></script> -->
     <script src="https://unpkg.com/topojson@3"></script>
 
     <style>
@@ -38,18 +38,38 @@
     </style>
   </head>
   <body>
-    <h2> COVID-19 U.S. Map of County Level Confirmed Cases (3/23/2020)</h2>
+    <h2> COVID-19 U.S. Map of County Level Confirmed Cases (3/24/2020)</h2>
     <p>
       Data Source: <a href="https://github.com/CSSEGISandData/COVID-19" target="_blank">Johns Hopkins University CSSE</a> data repository.<br/>
       Author: <a href="https://csteed.com" target="_blank">Chad A. Steed</a>, Oak Ridge National Laboratory
     </p>
+
+    <label for='valueSelect'>Select Value: </label>
+    <select id='valueSelect' onChange="valueSelectChanged()">
+      <option selected>Confirmed</option>
+      <option>Deaths</option>
+      <!-- <option>Recovered</option> -->
+    </select><br/><br/>
+
     <div id='chart'></div>
   </body>
 
   <script>
-    var width = 975, height = 610;
-    var covid_data = 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports/03-23-2020.csv';
+    var width = 1000, height = 610;
+    var covidFileRemote = 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports/03-24-2020.csv';
+    var covidFileLocal = 'data/daily/03-24-2020.csv';
+    var covidFileLocalPrev = 'data/daily/03-23-2020.csv';
+    var us;
+    var data;
 
+    const getSelectedValue = () => {
+      const select = document.getElementById('valueSelect');
+      return select.options[select.selectedIndex].text;
+    };
+
+    const valueSelectChanged = () => {
+      createChart();
+    }
     // var projection = d3.geoAlbersUsa().scale(1300).translate([487.5, 305])
     // var path = d3.geoPath();
     // console.log("here");
@@ -58,81 +78,40 @@
     //   .attr("height", height);
     
     d3.json('data/counties-albers-10m.json')
-      .then(us => {
+      .then(topology => {
+        us = topology;
         console.log(us);
 
-        d3.csv(covid_data)
-          .then(function(data) {
+        d3.csv(covidFileLocal)
+          .then(function(coviddata) {
+            // console.log(coviddata);
+            data = coviddata.filter(d => d['Country_Region'] === 'US');
+            // data = coviddata;
             console.log(data);
-            data.map(d => d.Confirmed = +d.Confirmed);
-            createCharts(us, data);
+            data.forEach(d => {
+              d.Confirmed = +d.Confirmed;
+              d.Deaths = +d.Deaths;
+              d.Recovered = +d.Recovered;
+            });
+            createChart();
           })
           .catch(function(error) {
             console.log(error);
           });
-
-        // const g = svg.append("g")
-        //   .attr("fill", "none")
-        //   .attr("stroke", "#000")
-        //   .attr("stroke-linejoin", "round")
-        //   .attr("stroke-linecap", "round");
-
-        // g.append("path")
-        //   .attr("stroke", "#aaa")
-        //   .attr("stroke-width", 0.5)
-        //   // .attr("fill", '#fff')
-        //   // .attr("d", path(topojson.feature(us, us.objects.counties).features));
-        //   .attr("d", path(topojson.mesh(us, us.objects.counties, (a, b) => a !== b && (a.id / 1000 | 0) === (b.id / 1000 | 0))));
-        
-        // g.append("path")
-        //   .attr("stroke-width", 0.5)
-        //   .attr("d", path(topojson.mesh(us, us.objects.states, (a, b) => a !== b)));
-
-        // g.append("path")
-        //   .attr("d", path(topojson.feature(us, us.objects.nation)));
-
-        // g.selectAll("path")
-        //   .data(topojson.feature(us, us.objects.counties).features)
-        //   .enter().append("path")
-        //     .attr("stroke", "#aaa")
-        //     .attr("stroke-width", 0.5)
-        //     .attr("d", path);
-        
-        // g.selectAll("path")
-        //   .data(topojson.mesh(us, us.objects.counties, (a, b) => a !== b && (a.id / 1000 | 0) === (b.id / 1000 | 0)))
-        //   .enter().append("path")
-        //     .attr("stroke", "#aaa")
-        //     .attr("stroke-width", 0.5)
-        //     .attr("d", path);
-        
-
-        // var geojson = topojson.feature(topology, topology.objects.counties);
-        // var geojson = topojson.mesh(us, us.objects.counties);
-        // console.log(geojson);
-
-        // svg.selectAll("path")
-        //   .data(geojson.features)
-        //   .enter().append("path")
-        //     .attr("d", path);
       })
       .catch(error => {
         console.log(error);
       });
-    // d3.json('data/counties-albers-10m.json', function(topology) {
-    //   console.log("topojson", topology);
-    //   var geojson = topojson.feature(topology, topology.objects.counties);
-    //   console.log("geojson", geojson);
 
-    //   svg.selectAll("path")
-    //     .data(geojson.features)
-    //     .enter().append("path")
-    //       .attr("d", path);
-    // });
+    const createChart = () => {
+      // console.log(us);
+      // console.log(data);
 
-    const createCharts = (us, data) => {
-      console.log(us);
-      console.log(data);
+      const selectedValue = getSelectedValue();
+      const dataValue = d => d[`${selectedValue}`];
+      // const dataValue = selectedValue === 'Confirmed' ? d => d.Confirmed : selectedValue === 'Deaths' ? d => d.Deaths : d => d.Recovered;
 
+      d3.select('#chart').selectAll('*').remove();
       var path = d3.geoPath();
 
       var svg = d3.select("#chart").append("svg")
@@ -172,9 +151,19 @@
 
       projection = d3.geoAlbersUsa().scale(1300).translate([487.5, 305])
 
-      const caseCountMap = new Map(data.filter(d => d.Confirmed > 0).map(d => [d.FIPS, d.Confirmed]));
-      console.log(caseCountMap);
-      console.log(caseCountMap.get("27113"))
+      // data.map(d => {if (d.Recovered > 0) {console.log(d);}})
+      // console.log(data.map(d => d.Recovered > 0));
+      // let test = data.map(d => d.Recovered);
+      // console.log(test);
+      // console.log(d3.sum(test));
+      // let test2 = data.map(dataValue);
+      // console.log(test2);
+      // console.log(d3.sum(test2));
+      // data.map(d => console.log(d.Recovered));
+      // const caseCountMap = new Map(data.filter(d => d.Confirmed > 0).map(d => [d.FIPS, d.Confirmed]));
+      const caseCountMap = new Map(data.filter(d => dataValue(d) > 0).map(d => [d.FIPS, dataValue(d)]));
+      // console.log(caseCountMap);
+      // console.log(caseCountMap.get("27113"))
 
       const features = topojson.feature(us, us.objects.counties).features
         .map(d => (d.value = caseCountMap.get(d.id), d))
@@ -185,7 +174,7 @@
 
       const color = d3.scaleSequentialSqrt(d3.interpolateBlues)
         .domain(d3.extent(features, d => d.value));
-      console.log(d3.extent(features, d => d.value));
+      // console.log(d3.extent(features, d => d.value));
 
       const radius = d3.scaleSqrt([0, d3.quantile([...caseCountMap.values()].sort(d3.ascending), 0.985)], [0, 15])
       console.log(features);
