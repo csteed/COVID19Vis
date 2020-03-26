@@ -42,7 +42,7 @@
     </style>
   </head>
   <body>
-    <h2> COVID-19 U.S. Map of County Level Confirmed Cases (March 24, 2020)</h2>
+    <h2> COVID-19 U.S. Map of County Level Confirmed Cases (March 25, 2020)</h2>
     <p>
       <strong>Data Source:</strong> <a href="https://github.com/CSSEGISandData/COVID-19" target="_blank">Johns Hopkins University CSSE</a> data repository.<br/>
       <strong>Map Data Source:</strong> <a href="https://github.com/topojson/us-atlas" target="_blank">U.S. Atlas TopoJSON from the U.S. Census Bureau</a> (conic equal-area Albers projection)<br/>
@@ -66,12 +66,18 @@
   <script>
     var width = 1000, height = 610;
     var covidFileRemote = 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports/03-24-2020.csv';
-    var covidFileLocal = 'data/daily/03-24-2020.csv';
-    var covidFileLocalPrev = 'data/daily/03-23-2020.csv';
+    var covidFileLocal = 'data/daily/03-25-2020.csv';
+    var covidFileLocalPrev = 'data/daily/03-24-2020.csv';
     var us;
     var data;
     var prevData;
     var diffData;
+
+    // var today = new Date();
+    // const formatDate = d3.timeFormat("%m-%d-%Y")
+    // const todayFilename = `${formatDate(today)}.csv`;
+    // console.log(todayFilename);
+    // console.log(`${today.getMonth()}-${today.getDate()}-${today.getFullYear()}`);
 
     const getSelectedValue = () => {
       const select = document.getElementById('valueSelect');
