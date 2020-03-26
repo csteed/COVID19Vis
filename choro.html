@@ -179,7 +179,6 @@
 
       const selectedValue = getSelectedValue();
       const dataValue = d => d[`${selectedValue}`];
-      // const dataValue = selectedValue === 'Confirmed' ? d => d.Confirmed : selectedValue === 'Deaths' ? d => d.Deaths : d => d.Recovered;
 
       d3.select('#chart').selectAll('*').remove();
       var path = d3.geoPath();
@@ -188,6 +187,14 @@
         .attr("width", width)
         .attr("height", height)
 
+      const counties = topojson.feature(us, us.objects.counties).features;
+      const states = topojson.mesh(us, us.objects.states, (a, b) => a !== b);
+
+      const caseCountMap = new Map(chartData.filter(d => dataValue(d) > 0).map(d => [d.FIPS, dataValue(d)]));
+      // console.log(caseCountMap);
+
+      const color = d3.scaleSequentialQuantile([...caseCountMap.values()], d3.interpolateOrRd);
+
       const g = svg.append("g")
         .attr('class', 'mapcontainer')
         .attr("fill", "none")
@@ -195,61 +202,96 @@
         .attr("stroke-linejoin", "round")
         .attr("stroke-linecap", "round");
 
-      function zoomed() {
-        const mapG = svg.select('.mapcontainer');
-        mapG.style('stroke-width', `${0.5 / d3.event.transform.k}px`);
-        mapG.attr("transform", d3.event.transform);
-      }
-
-      const zoom = d3.zoom()
-        .scaleExtent([1, 10])
-        .on("zoom", zoomed);
-
-      svg.call(zoom);
+      g.selectAll("path")
+        .data(counties)
+        .enter().append("path")
+          .attr("stroke", "#aaa")
+          .attr("stroke-width", 0.5)
+          .attr("fill", d => {
+            const value = caseCountMap.get(d.id);
+            if (value) {
+              // return "dodgerblue";
+              return color(value);
+            } else {
+              return "#fff";
+            }
+          })
+          .attr("d", path)
+          .on("mouseover", function() { d3.select(this).attr("stroke", "#000").raise(); })
+          .on("mouseout", function() { d3.select(this).attr("stroke", null).lower(); })
+          .append("title")
+            .text(d => `${d.properties.name}: ${caseCountMap.get(d.id) ? caseCountMap.get(d.id) : 0}${getShowDifference() ? "%" : ""}`);
+            // .text(d => `${d.properties.name}: ${caseCountMap.get(d.id)}`);
 
       g.append("path")
-        .attr("stroke", "#aaa")
         .attr("stroke-width", 0.5)
-        .attr("d", path(topojson.mesh(us, us.objects.counties, (a, b) => a !== b && (a.id / 1000 | 0) === (b.id / 1000 | 0))));
-      
-      g.append("path")
-        .attr("stroke-width", 0.5)
-        .attr("d", path(topojson.mesh(us, us.objects.states, (a, b) => a !== b)));
+        .attr("d", path(states));
 
       g.append("path")
         .attr("d", path(topojson.feature(us, us.objects.nation)));
 
-      // projection = d3.geoAlbersUsa().scale(1300).translate([487.5, 305])
+      // const g = svg.append("g")
+      //   .attr('class', 'mapcontainer')
+      //   .attr("fill", "none")
+      //   .attr("stroke", "#000")
+      //   .attr("stroke-linejoin", "round")
+      //   .attr("stroke-linecap", "round");
 
-      const caseCountMap = new Map(chartData.filter(d => dataValue(d) > 0).map(d => [d.FIPS, dataValue(d)]));
-      // console.log(caseCountMap);
+      // function zoomed() {
+      //   const mapG = svg.select('.mapcontainer');
+      //   mapG.style('stroke-width', `${0.5 / d3.event.transform.k}px`);
+      //   mapG.attr("transform", d3.event.transform);
+      // }
 
-      const features = topojson.feature(us, us.objects.counties).features
-        .map(d => (d.value = caseCountMap.get(d.id), d))
-        .filter(d => d.value)
-        .sort((a, b) => b.value - a.value);
+      // const zoom = d3.zoom()
+      //   .scaleExtent([1, 10])
+      //   .on("zoom", zoomed);
 
-      const format = d3.format(",.0f");
+      // svg.call(zoom);
 
-      const color = d3.scaleSequentialSqrt(d3.interpolateBlues)
-        .domain(d3.extent(features, d => d.value));
+      // g.append("path")
+      //   .attr("stroke", "#aaa")
+      //   .attr("stroke-width", 0.5)
+      //   .attr("d", path(topojson.mesh(us, us.objects.counties, (a, b) => a !== b && (a.id / 1000 | 0) === (b.id / 1000 | 0))));
+      
+      // g.append("path")
+      //   .attr("stroke-width", 0.5)
+      //   .attr("d", path(topojson.mesh(us, us.objects.states, (a, b) => a !== b)));
 
-      const radius = d3.scaleSqrt([0, d3.quantile([...caseCountMap.values()].sort(d3.ascending), 0.985)], [0, 15])
-      console.log(features);
+      // g.append("path")
+      //   .attr("d", path(topojson.feature(us, us.objects.nation)));
 
-      g.append("g")
-        .attr("fill", "brown")
-        .attr("fill-opacity", 0.5)
-        .attr("stroke", "#fff")
-        .attr("stroke-width", 0.5)
-        .selectAll("circle")
-        .data(features)
-        .join("circle")
-          .attr("transform", d => `translate(${path.centroid(d)})`)
-          .attr("r", d => radius(d.value))
-          // .attr("fill", d => {console.log(color(d.value)); return color(d.value)} )
-        .append("title")
-          .text(d => `${d.properties.name} ${format(d.value)}${getShowDifference() ? "%" : ""}`);
+      // // projection = d3.geoAlbersUsa().scale(1300).translate([487.5, 305])
+
+      // const caseCountMap = new Map(chartData.filter(d => dataValue(d) > 0).map(d => [d.FIPS, dataValue(d)]));
+      // // console.log(caseCountMap);
+
+      // const features = topojson.feature(us, us.objects.counties).features
+      //   .map(d => (d.value = caseCountMap.get(d.id), d))
+      //   .filter(d => d.value)
+      //   .sort((a, b) => b.value - a.value);
+
+      // const format = d3.format(",.0f");
+
+      // const color = d3.scaleSequentialSqrt(d3.interpolateBlues)
+      //   .domain(d3.extent(features, d => d.value));
+
+      // const radius = d3.scaleSqrt([0, d3.quantile([...caseCountMap.values()].sort(d3.ascending), 0.985)], [0, 15])
+      // console.log(features);
+
+      // g.append("g")
+      //   .attr("fill", "brown")
+      //   .attr("fill-opacity", 0.5)
+      //   .attr("stroke", "#fff")
+      //   .attr("stroke-width", 0.5)
+      //   .selectAll("circle")
+      //   .data(features)
+      //   .join("circle")
+      //     .attr("transform", d => `translate(${path.centroid(d)})`)
+      //     .attr("r", d => radius(d.value))
+      //     // .attr("fill", d => {console.log(color(d.value)); return color(d.value)} )
+      //   .append("title")
+      //     .text(d => `${d.properties.name} ${format(d.value)}${getShowDifference() ? "%" : ""}`);
     };
   </script>
   
