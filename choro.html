@@ -450,21 +450,24 @@
       function ramp(color, n = 256) {
         // const canvas = DOM.canvas(n, 1);
         // const canvas = document.getElementById("legendCanvas");
-        const canvas = d3.select("#chart").append('canvas')
-          .attr("width", n)
-          .attr("height", 1);
+        const canvas = document.createElement("canvas")
+        canvas.width = n;
+        canvas.height = 1;
+        // const canvas = d3.select("#chart").append('canvas')
+        //   .attr("width", n)
+        //   .attr("height", 1);
         // d3.select(canvas)
         //   .attr("width", 200)
         //   .attr("height", 20);
         // canvas.attr("width", 200);
         // canvas.attr("height", 20);
         // document.getElementByID("legendCanvas");
-        const context = canvas.node().getContext("2d");
+        const context = canvas.getContext("2d");
         for (let i = 0; i < n; ++i) {
           context.fillStyle = color(i / (n - 1));
           context.fillRect(i, 0, 1, 1);
         }
-        return canvas.node();
+        return canvas;
       }
     };
   </script>
