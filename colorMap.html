@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<meta charset="utf-8" />
+<html>
+  <head>
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <!-- <script src="js/d3.min.js"></script> -->
+    <script src="https://unpkg.com/topojson@3"></script>
+
+    <style>
+      body {
+        font: 12px sans-serif;
+        margin: 4px 20px 0px 20px;
+        /* background: gray; */
+        background-color: whitesmoke;
+      }
+
+      .top {
+        background-color: whitesmoke;
+        overflow: hidden;
+        position: fixed;
+        top: 0;
+        width: 100%;
+      }
+
+      .main {
+        margin-top: 400px;
+      }
+
+      a {
+        text-decoration: none;
+      }
+
+      /* path {
+        fill: #ccc;
+        stroke: #fff;
+        stroke-width: .5px;
+      } */
+
+      /* path:hover {
+        fill: red;
+      }  */
+    </style>
+  </head>
+  <body>
+    <h2> COVID-19 U.S. Map of County Level Confirmed Cases (March 25, 2020)</h2>
+    <p>
+      <strong>Data Source:</strong> <a href="https://github.com/CSSEGISandData/COVID-19" target="_blank">Johns Hopkins University CSSE</a> data repository.<br/>
+      <strong>Map Data Source:</strong> <a href="https://github.com/topojson/us-atlas" target="_blank">U.S. Atlas TopoJSON from the U.S. Census Bureau</a> (conic equal-area Albers projection)<br/>
+      <strong>Author:</strong> <a href="https://csteed.com" target="_blank">Chad A. Steed</a>, <a href="https://ornl.gov" target="_blank">Oak Ridge National Laboratory</a>
+    </p>
+
+    <label for='valueSelect'>Select Value: </label>
+    <select id='valueSelect' onChange="valueSelectChanged()">
+      <option selected>Confirmed</option>
+      <option>Deaths</option>
+      <!-- <option>Recovered</option> -->
+    </select><br/><br/>
+
+    <input type='checkbox' id="showDiffCheck" onChange="showDiffCheckChanged()"/>
+    <label for='showDiffCheck'>Show % change from previous day</label>
+    <br/><br/>
+
+    <div id='chart'></div>
+  </body>
+
+  <script>
+    var width = 1000, height = 610;
+    var covidFileRemote = 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports/03-24-2020.csv';
+    var covidFileLocal = 'data/daily/03-25-2020.csv';
+    var covidFileLocalPrev = 'data/daily/03-24-2020.csv';
+    var us;
+    var data;
+    var prevData;
+    var diffData;
+
+    // var today = new Date();
+    // const formatDate = d3.timeFormat("%m-%d-%Y")
+    // const todayFilename = `${formatDate(today)}.csv`;
+    // console.log(todayFilename);
+    // console.log(`${today.getMonth()}-${today.getDate()}-${today.getFullYear()}`);
+
+    const getSelectedValue = () => {
+      const select = document.getElementById('valueSelect');
+      return select.options[select.selectedIndex].text;
+    };
+
+    const getShowDifference = () => {
+      return document.getElementById('showDiffCheck').checked;
+    }
+
+    const showDiffCheckChanged = () => {
+      createChart();
+    }
+
+    const valueSelectChanged = () => {
+      createChart();
+    }
+    // var projection = d3.geoAlbersUsa().scale(1300).translate([487.5, 305])
+    // var path = d3.geoPath();
+    // console.log("here");
+    // var svg = d3.select("#chart").append("svg")
+    //   .attr("width", width)
+    //   .attr("height", height);
+    
+    d3.json('data/counties-albers-10m.json')
+      .then(topology => {
+        us = topology;
+        console.log(us);
+
+        d3.csv(covidFileLocal)
+          .then(function(coviddata) {
+            data = coviddata.filter(d => d['Country_Region'] === 'US' && d.FIPS.length > 0);
+            console.log(data);
+            data.forEach(d => {
+              d.Confirmed = +d.Confirmed;
+              d.Deaths = +d.Deaths;
+              d.Recovered = +d.Recovered;
+            });
+
+            d3.csv(covidFileLocalPrev)
+              .then(function(coviddataprev) {
+                prevData = coviddataprev.filter(d => d['Country_Region'] === 'US' && d.FIPS.length > 0);
+                // console.log(prevData);
+                prevData.forEach(d => {
+                  d.Confirmed = +d.Confirmed;
+                  d.Deaths = +d.Deaths;
+                  d.Recovered = +d.Recovered;
+                });
+                console.log(prevData);
+                diffData = [];
+                data.forEach(d => {
+                  const prev_d = prevData.find(p => p.FIPS === d.FIPS);
+                  if (prev_d) {
+                    diffData.push({
+                      FIPS: d.FIPS,
+                      Confirmed: prev_d.Confirmed > 0 ? ((d.Confirmed - prev_d.Confirmed) / prev_d.Confirmed) * 100. : 0,
+                      Deaths: prev_d.Deaths > 0 ? ((d.Deaths - prev_d.Deaths) / prev_d.Deaths) * 100. : 0
+                    });
+                  // } else {
+                  //   diffData.push({
+                  //     FIPS: d.FIPS,
+                  //     Confirmed: d.Confirmed,
+                  //     Deaths: d.Deaths
+                  //   });
+                  }
+                });
+                console.log(diffData);
+                // data.forEach(d => {
+                //   if (d.FIPS.length > 0) {
+                //     const prev_d = prevData.find(s => s.FIPS === d.FIPS);
+                //     if (prev_d) {
+                //       d.Confirmed = d.Confirmed - prev_d.Confirmed;
+                //       d.Deaths = d.Deaths - prev_d.Deaths;
+                //     }
+                //   }
+                // });
+                createChart();
+              })
+              .catch(function(error) {
+                console.log(error);
+              });
+          })
+          .catch(function(error) {
+            console.log(error);
+          });
+      })
+      .catch(error => {
+        console.log(error);
+      });
+
+    const createChart = () => {
+      // console.log(us);
+      // console.log(data);
+
+      var chartData = data;
+      if (getShowDifference()) {
+        chartData = diffData;
+      }
+
+      const selectedValue = getSelectedValue();
+      const dataValue = d => d[`${selectedValue}`];
+      // const dataValue = selectedValue === 'Confirmed' ? d => d.Confirmed : selectedValue === 'Deaths' ? d => d.Deaths : d => d.Recovered;
+
+      d3.select('#chart').selectAll('*').remove();
+      var path = d3.geoPath();
+
+      var svg = d3.select("#chart").append("svg")
+        .attr("width", width)
+        .attr("height", height)
+
+      const g = svg.append("g")
+        .attr('class', 'mapcontainer')
+        .attr("fill", "none")
+        .attr("stroke", "#000")
+        .attr("stroke-linejoin", "round")
+        .attr("stroke-linecap", "round");
+
+      function zoomed() {
+        const mapG = svg.select('.mapcontainer');
+        mapG.style('stroke-width', `${0.5 / d3.event.transform.k}px`);
+        mapG.attr("transform", d3.event.transform);
+      }
+
+      const zoom = d3.zoom()
+        .scaleExtent([1, 10])
+        .on("zoom", zoomed);
+
+      svg.call(zoom);
+
+      g.append("path")
+        .attr("stroke", "#aaa")
+        .attr("stroke-width", 0.5)
+        .attr("d", path(topojson.mesh(us, us.objects.counties, (a, b) => a !== b && (a.id / 1000 | 0) === (b.id / 1000 | 0))));
+      
+      g.append("path")
+        .attr("stroke-width", 0.5)
+        .attr("d", path(topojson.mesh(us, us.objects.states, (a, b) => a !== b)));
+
+      g.append("path")
+        .attr("d", path(topojson.feature(us, us.objects.nation)));
+
+      // projection = d3.geoAlbersUsa().scale(1300).translate([487.5, 305])
+
+      const caseCountMap = new Map(chartData.filter(d => dataValue(d) > 0).map(d => [d.FIPS, dataValue(d)]));
+      // console.log(caseCountMap);
+
+      const features = topojson.feature(us, us.objects.counties).features
+        .map(d => (d.value = caseCountMap.get(d.id), d))
+        .filter(d => d.value)
+        .sort((a, b) => b.value - a.value);
+
+      const format = d3.format(",.0f");
+
+      const color = d3.scaleSequentialSqrt(d3.interpolateBlues)
+        .domain(d3.extent(features, d => d.value));
+
+      const radius = d3.scaleSqrt([0, d3.quantile([...caseCountMap.values()].sort(d3.ascending), 0.985)], [0, 15])
+      console.log(features);
+
+      g.append("g")
+        .attr("fill", "brown")
+        .attr("fill-opacity", 0.5)
+        .attr("stroke", "#fff")
+        .attr("stroke-width", 0.5)
+        .selectAll("circle")
+        .data(features)
+        .join("circle")
+          .attr("transform", d => `translate(${path.centroid(d)})`)
+          .attr("r", d => radius(d.value))
+          // .attr("fill", d => {console.log(color(d.value)); return color(d.value)} )
+        .append("title")
+          .text(d => `${d.properties.name} ${format(d.value)}${getShowDifference() ? "%" : ""}`);
+    };
+  </script>
+  
+  </html>
