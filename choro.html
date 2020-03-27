@@ -68,8 +68,8 @@
   <script>
     var width = 1000, height = 610;
     var covidFileRemote = 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports/03-24-2020.csv';
-    var covidFileLocal = 'data/daily/03-25-2020.csv';
-    var covidFileLocalPrev = 'data/daily/03-24-2020.csv';
+    var covidFileLocal = 'data/daily/03-26-2020.csv';
+    var covidFileLocalPrev = 'data/daily/03-25-2020.csv';
     var us;
     var data;
     var prevData;
@@ -223,7 +223,6 @@
           .on("mouseout", function() { d3.select(this).attr("stroke", "#aaa").attr("stroke-width", 0.5).lower(); })
           .append("title")
             .text(d => `${d.properties.name}: ${caseCountMap.get(d.id) ? caseCountMap.get(d.id) : 0}${getShowDifference() ? "%" : ""}`);
-            // .text(d => `${d.properties.name}: ${caseCountMap.get(d.id)}`);
 
       g.append("path")
         .attr("stroke-width", 0.5)
@@ -232,78 +231,6 @@
       g.append("path")
         .attr("d", path(topojson.feature(us, us.objects.nation)));
 
-      // var legendWidth = 200;
-      // var x = Object.assign(color.copy()
-      //   .interpolator(d3.interpolateRound(0, legendWidth)),
-      //   {range() { return [0, legendWIdth]; }});
-      
-      // ramp(color.interpolator());
-      // for (let i = 0; i < 256; ++i) {
-      //   console.log(color.interpolator()(i / (256 - 1)));
-      // }
-
-      
-      // function ramp(color, n = 256) {
-      //   for (let i = 0; i < n; ++i) {
-      //     console.log(color(i / (n - 1)));
-
-      //   }
-      // }
-
-      // console.log(x.ticks);
-      
-
-      // draw legend
-      /*
-      var numLegendSamples = 20;
-      var legendWidth = 200;
-      var legendHeight = 20;
-
-      var defs = svg.append("defs");
-      var gradient = defs.append("linearGradient")
-        .attr("id", "linearGradient")
-        .attr("x1", "0%")
-        .attr("y1", "0%")
-        .attr("x2", "100%")
-        .attr("y2", "0%");
-
-      var dataRange = color.domain()[1] - color.domain()[0];
-      console.log(color.domain());
-      let stepSize = dataRange / numLegendSamples;
-
-      for (let i = 0; i < numLegendSamples; i++) {
-        gradient.append("stop")
-          .attr("offset", (i / (numLegendSamples - 1)))
-          .attr("stop-color", color.interpolator()(i / (numLegendSamples - 1)));
-          // .attr("stop-color", color(color.domain()[0] + (i * stepSize)));
-      }
-
-      var legend = svg.append("g")
-        .attr("class", "legend")
-        .attr("transform", `translate(610, 20)`);
-      
-      legend.append("rect")
-        .attr("x", 0)
-        .attr("y", -20)
-        .attr("width", legendWidth)
-        .attr("height", legendHeight)
-        .attr("fill", "url(#linearGradient")
-        .attr("stroke", 'darkgray');
-
-      var legendX = Object.assign(color.copy()
-        .interpolator(d3.interpolateRound(0, legendWidth)),
-        {range() { return [0, legendWidth]; }});
-      var ticks = legendWidth / 64;
-      const n = Math.round(ticks + 1);
-      var tickValues = d3.range(numLegendSamples).map(i => d3.quantile(color.domain(), i / (numLegendSamples - 1)));
-
-      legend.append("g")
-        .call(d3.axisBottom(legendX))
-          .ticks(ticks, typeof tickFormat === "string" ? tickFormat : undefined);
-          // .tickFormat(typeof tickFormat === "function" ? tickFormat : undefined)
-          // .tickSize(6);
-          // .tickValues(tickValues);
-      */
       svg.append("g")
         .attr("transform", "translate(610, 20)")
         .append(() => legend({
@@ -448,20 +375,9 @@
       }
 
       function ramp(color, n = 256) {
-        // const canvas = DOM.canvas(n, 1);
-        // const canvas = document.getElementById("legendCanvas");
         const canvas = document.createElement("canvas")
         canvas.width = n;
         canvas.height = 1;
-        // const canvas = d3.select("#chart").append('canvas')
-        //   .attr("width", n)
-        //   .attr("height", 1);
-        // d3.select(canvas)
-        //   .attr("width", 200)
-        //   .attr("height", 20);
-        // canvas.attr("width", 200);
-        // canvas.attr("height", 20);
-        // document.getElementByID("legendCanvas");
         const context = canvas.getContext("2d");
         for (let i = 0; i < n; ++i) {
           context.fillStyle = color(i / (n - 1));
