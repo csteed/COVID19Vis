@@ -61,7 +61,7 @@
 
     <hr>
 
-    <h3>Charts:</h3>
+    <h3>Chart:</h3>
     <div id="chart"></div>
 
   </body>
@@ -72,7 +72,7 @@
     let chartData;
     const chartHeight = 200;
     const rowHeight = 12;
-    const margin = {top: 20, right: 20, bottom: 20, left: 170};
+    const margin = {top: 50, right: 20, bottom: 20, left: 170};
 
     const removeSpaces = (str) => {
       return str.replace(/\s+/g, '');
@@ -254,7 +254,8 @@
       return movingRangeValues;
     }
 
-    const formatTime = d3.timeFormat('%m-%d-%Y');
+    // const formatTime = d3.timeFormat('%m-%d-%Y');
+    const formatTime = d3.timeFormat('%-m/%-d');
 
     const loadData = () => {
       if (allFileData) {
@@ -360,13 +361,16 @@
           .domain(names)
           .rangeRound([0, height]);
         
-        const color = d3.scaleSequential([0, d3.max(values, d => d3.max(d))], d3.interpolatePuRd);
-        console.log(color.domain());
+        // const color = d3.scaleSequential([1, d3.max(values, d => d3.max(d))], d3.interpolatePuRd);
+        const color = d3.scaleSequentialSqrt(t => d3.interpolateReds((t + 0.15) / 2))
+          .domain([1, d3.max(values, d => d3.max(d))]);
+        // ([1, d3.max(values, d => d3.max(d))], d3.interpolatePuRd);
+        // console.log(color.domain());
 
         g.append("g")
           .call(d3.axisTop(x))
           .call(g => g.select(".domain").remove())
-          .call(g => g.selectAll("text").attr("y", 0).attr("x", 9).attr("dy", ".35em").attr("transform", "rotate(90)").style("text-anchor", "start"));
+          .call(g => g.selectAll("text").attr("y", 0).attr("x", 9).attr("dy", ".35em").attr("transform", "rotate(-90)").style("text-anchor", "start"));
 
         g.append("g")
           .attr("class", "axis axis--y")
@@ -382,16 +386,11 @@
               d3.select(".axis--y")
                 .selectAll('text')
                 .attr("font-weight", t => t === names[i] ? "bold" : "normal");
-                // .filter(function (d) { return d === names[i]})
-                // .attr("font-weight", "bold");
             })
             .on('mouseout touchout', (d, i) => {
               d3.select(".axis--y")
                 .selectAll('text')
                 .attr("font-weight", "normal");
-              //   .filter(function (d) { return d === names[i]})
-              //   .attr("font-weight", null)
-              //   .attr("font-size", null);
             });
         
         function format (d) {
@@ -410,7 +409,7 @@
             // .attr("width", (d, i) => x(dates[i+1]) - x(dates[i]) - 1)
             .attr("width", x.bandwidth())
             .attr("height", y.bandwidth() - 1)
-            .attr("fill", d => isNaN(d) ? "whitesmoke" : d === 0 ? "#eee" : color(d))
+            .attr("fill", d => isNaN(d) ? "none" : d === 0 ? "whitesmoke" : color(d))
           .append("title")
             .text((d, i) => `${dates[i]}: ${format(d)}`);
       }
