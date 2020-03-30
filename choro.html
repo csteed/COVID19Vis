@@ -56,6 +56,11 @@
       <!-- <option>Recovered</option> -->
     </select><br/><br/>
 
+    <label for='dateSelect'>Date: </label>
+    <select id='dateSelect' onChange="dateSelectChanged()">
+    </select>
+    <br/><br/>
+
     <input type='checkbox' id="showDiffCheck" onChange="showDiffCheckChanged()"/>
     <label for='showDiffCheck'>Show % change from previous day</label>
     <br/><br/>
@@ -67,19 +72,34 @@
 
   <script>
     var width = 1000, height = 610;
-    var covidFileRemote = 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports/03-24-2020.csv';
-    var covidFileLocal = 'data/daily/03-29-2020.csv';
-    var covidFileLocalPrev = 'data/daily/03-28-2020.csv';
+    // var covidFileRemote = 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports/03-24-2020.csv';
+    // var covidFileLocal = 'data/daily/03-29-2020.csv';
+    // var covidFileLocalPrev = 'data/daily/03-28-2020.csv';
+    const formatDate = d3.timeFormat("%m-%d-%Y");
+    const parseDate = d3.timeParse("%m-%d-%Y");
     var us;
-    var data;
-    var prevData;
-    var diffData;
+    // var data;
+    // var prevData;
+    // var diffData;
+    const earliestDate = new Date(2020, 2, 23);
+    var allFileData;
+    const ustopologyFilename = 'data/counties-albers-10m.json';
+    const remoteFilenamePrefix = 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports/';
 
-    // var today = new Date();
-    // const formatDate = d3.timeFormat("%m-%d-%Y")
-    // const todayFilename = `${formatDate(today)}.csv`;
-    // console.log(todayFilename);
-    // console.log(`${today.getMonth()}-${today.getDate()}-${today.getFullYear()}`);
+    const populateDateSelect = () => {
+      const select = document.getElementById('dateSelect');
+      for (let i = select.options.length; i >= 0; i--) {
+        select.remove(i);
+      }
+      allFileData.map(d => {
+        select.options[select.options.length] = new Option(d.date);
+      });      
+    }
+
+    const getSelectDate = () => {
+      const select = document.getElementById('dateSelect');
+      return select.options[select.selectedIndex].text;
+    }
 
     const getSelectedValue = () => {
       const select = document.getElementById('valueSelect');
@@ -88,7 +108,7 @@
 
     const getShowDifference = () => {
       return document.getElementById('showDiffCheck').checked;
-    }
+    };
 
     const showDiffCheckChanged = () => {
       createChart();
@@ -97,13 +117,104 @@
     const valueSelectChanged = () => {
       createChart();
     }
+
+    const dateSelectChanged = () => {
+      createChart();
+    }
     // var projection = d3.geoAlbersUsa().scale(1300).translate([487.5, 305])
     // var path = d3.geoPath();
     // console.log("here");
     // var svg = d3.select("#chart").append("svg")
     //   .attr("width", width)
     //   .attr("height", height);
+
+
+    const URLExists = (url) => {
+      var http = new XMLHttpRequest();
+      http.open('HEAD', url, false);
+      http.send();
+      return http.status != 404;
+    };
+
+    // const earliestDate = '03-24-2020';
     
+    const loadFiles = () => {
+      allFileData = [];
+      var remoteFilenames = [];
+      var fileDates = [];
+      var currentDate = new Date();
+      while (currentDate.getFullYear() >= earliestDate.getFullYear() &&
+        currentDate.getMonth() >= earliestDate.getMonth() &&
+        currentDate.getDate() >= earliestDate.getDate()) {
+          const fileDate = formatDate(currentDate);
+          var remoteFilename = remoteFilenamePrefix + fileDate + ".csv"
+          // console.log(URLExists(remoteFilename));
+          if (URLExists(remoteFilename)) {
+            remoteFilenames.push(remoteFilename);
+            fileDates.push(fileDate);
+          }
+          currentDate.setDate(currentDate.getDate() - 1);
+      }
+
+      console.log(remoteFilenames);
+
+      d3.json(ustopologyFilename)
+        .then(topology => {
+          us = topology;
+          console.log(us);
+        })
+        .then(() => {
+          console.log('loading data files');
+          Promise.all(remoteFilenames.map(f => d3.csv(f)))
+            .then((d) => {
+              d.forEach((v, i) => {
+                allFileData.push({
+                  date: fileDates[i],
+                  data: v
+                });
+              });
+
+              allFileData.sort((a, b) => d3.descending(parseDate(a.date), parseDate(b.date)));
+              console.log(allFileData);
+              calculateDailyChange(allFileData);
+              populateDateSelect();
+              createChart();
+            })
+            .catch((error) => {
+              console.log(error);
+            });
+        })
+        .catch(error => {
+          console.log(error);
+        });
+    };
+
+    const calculateDailyChange = (data) => {
+      data.forEach((f, i) => {
+        var diffData = [];
+        console.log(f.date);
+        if (i < data.length - 1) {
+          f.diffData = [];
+          f.data.forEach(d => {
+            const prev_d = data[i+1].data.find(p => p.FIPS === d.FIPS);
+            if (prev_d) {
+              f.diffData.push({
+                FIPS: d.FIPS,
+                ConfirmedValue: d.Confirmed - prev_d.Confirmed,
+                Confirmed: prev_d.Confirmed > 0 ? ((d.Confirmed - prev_d.Confirmed) / prev_d.Confirmed) * 100. : 0,
+                DeathsValue: d.Deaths - prev_d.Deaths,
+                Deaths: prev_d.Deaths > 0 ? ((d.Deaths - prev_d.Deaths) / prev_d.Deaths) * 100. : 0
+              });
+            }
+          });
+        } else {
+          f.diffData = null;
+        }
+      });
+    };
+
+    loadFiles();
+/*
     d3.json('data/counties-albers-10m.json')
       .then(topology => {
         us = topology;
@@ -169,15 +280,23 @@
       .catch(error => {
         console.log(error);
       });
+      */
 
     const createChart = () => {
       // console.log(us);
       // console.log(data);
 
-      var chartData = data;
+      const selectedDate = getSelectDate();
+      var fileNode = allFileData.find(d => d.date === selectedDate);
+      var chartData = fileNode.data;
       if (getShowDifference()) {
-        chartData = diffData;
+        chartData = fileNode.diffData;
       }
+
+      // var chartData = data;
+      // if (getShowDifference()) {
+      //   chartData = diffData;
+      // }
 
       const selectedValue = getSelectedValue();
       const dataValue = d => d[`${selectedValue}`];
