@@ -29,48 +29,42 @@
       a {
         text-decoration: none;
       }
-
-      /* path {
-        fill: #ccc;
-        stroke: #fff;
-        stroke-width: .5px;
-      } */
-
-      /* path:hover {
-        fill: red;
-      }  */
     </style>
   </head>
   <body>
-    <h2> COVID-19 U.S. Choropleth Map of County Level Cases (Updated March 29, 2020)</h2>
+    <h2 id="titleHeader"> COVID-19 U.S. Choropleth Map of County Level Cases</h2>
     <p>
       <strong>Data Source:</strong> <a href="https://github.com/CSSEGISandData/COVID-19" target="_blank">Johns Hopkins University CSSE</a> data repository.<br/>
       <strong>Map Data Source:</strong> <a href="https://github.com/topojson/us-atlas" target="_blank">U.S. Atlas TopoJSON from the U.S. Census Bureau</a> (conic equal-area Albers projection)<br/>
       <strong>Author:</strong> <a href="https://csteed.com" target="_blank">Chad A. Steed</a>, <a href="https://ornl.gov" target="_blank">Oak Ridge National Laboratory</a>
     </p>
 
-    <label for='valueSelect'>Select Value: </label>
-    <select id='valueSelect' onChange="valueSelectChanged()">
-      <option selected>Confirmed</option>
-      <option>Deaths</option>
-      <!-- <option>Recovered</option> -->
-    </select><br/><br/>
-
     <label for='dateSelect'>Date: </label>
     <select id='dateSelect' onChange="dateSelectChanged()">
     </select>
     <br/><br/>
 
-    <input type='checkbox' id="showDiffCheck" onChange="showDiffCheckChanged()"/>
-    <label for='showDiffCheck'>Show % change from previous day</label>
+    <label for='caseSelect'>Select Case Type: </label>
+    <select id='caseSelect' onChange="caseSelectChanged()">
+      <option selected>Confirmed</option>
+      <option>Deaths</option>
+      <!-- <option>Recovered</option> -->
+    </select>
     <br/><br/>
 
-    <!-- <canvas id="legendCanvas"></canvas> -->
+    <label for='valueSelect'>Select Value: </label>
+    <select id='valueSelect' onChange="valueSelectChanged()">
+      <option selected>Total Count</option>
+      <option>24-hour Change</option>
+      <option>24-hour Change Percent</option>
+    </select>
+
     <div id='chart'></div>
     
   </body>
 
   <script>
+    const titleText = "COVID-19 U.S. Choropleth Map of County Level Cases";
     var width = 1000, height = 610;
     // var covidFileRemote = 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports/03-24-2020.csv';
     // var covidFileLocal = 'data/daily/03-29-2020.csv';
@@ -96,7 +90,7 @@
       });      
     }
 
-    const getSelectDate = () => {
+    const getSelectedDate = () => {
       const select = document.getElementById('dateSelect');
       return select.options[select.selectedIndex].text;
     }
@@ -106,11 +100,18 @@
       return select.options[select.selectedIndex].text;
     };
 
-    const getShowDifference = () => {
-      return document.getElementById('showDiffCheck').checked;
+    const setTitleText = () => {
+      const newText = `${titleText} (${getSelectedCase()}, ${getSelectedValue()}, ${getSelectedDate()})`;
+      console.log(newText);
+      document.getElementById('titleHeader').innerHTML = newText;
     };
 
-    const showDiffCheckChanged = () => {
+    const getSelectedCase = () => {
+      const select = document.getElementById('caseSelect');
+      return select.options[select.selectedIndex].text;
+    }
+
+    const caseSelectChanged = () => {
       createChart();
     }
 
@@ -136,8 +137,6 @@
       return http.status != 404;
     };
 
-    // const earliestDate = '03-24-2020';
-    
     const loadFiles = () => {
       allFileData = [];
       var remoteFilenames = [];
@@ -148,7 +147,6 @@
         currentDate.getDate() >= earliestDate.getDate()) {
           const fileDate = formatDate(currentDate);
           var remoteFilename = remoteFilenamePrefix + fileDate + ".csv"
-          // console.log(URLExists(remoteFilename));
           if (URLExists(remoteFilename)) {
             remoteFilenames.push(remoteFilename);
             fileDates.push(fileDate);
@@ -194,21 +192,22 @@
         var diffData = [];
         console.log(f.date);
         if (i < data.length - 1) {
-          f.diffData = [];
           f.data.forEach(d => {
             const prev_d = data[i+1].data.find(p => p.FIPS === d.FIPS);
             if (prev_d) {
-              f.diffData.push({
-                FIPS: d.FIPS,
-                ConfirmedValue: d.Confirmed - prev_d.Confirmed,
-                Confirmed: prev_d.Confirmed > 0 ? ((d.Confirmed - prev_d.Confirmed) / prev_d.Confirmed) * 100. : 0,
-                DeathsValue: d.Deaths - prev_d.Deaths,
-                Deaths: prev_d.Deaths > 0 ? ((d.Deaths - prev_d.Deaths) / prev_d.Deaths) * 100. : 0
-              });
+              d.ConfirmedChange = d.Confirmed - prev_d.Confirmed;
+              d.ConfirmedChangePct = prev_d.Confirmed > 0 ? ((d.Confirmed - prev_d.Confirmed) / prev_d.Confirmed) * 100. : 0;
+              d.DeathsChange = d.Deaths - prev_d.Deaths;
+              d.DeathsChangePct = prev_d.Deaths > 0 ? ((d.Deaths - prev_d.Deaths) / prev_d.Deaths) * 100. : 0;
             }
           });
         } else {
-          f.diffData = null;
+          f.data.forEach(d => {
+            d.ConfirmedChange = 0;
+            d.ConfirmedChangePct = 0;
+            d.DeathsChange = 0;
+            d.DeathsChangePct = 0;
+          });
         }
       });
     };
@@ -283,23 +282,20 @@
       */
 
     const createChart = () => {
-      // console.log(us);
-      // console.log(data);
+      setTitleText();
 
-      const selectedDate = getSelectDate();
+      const selectedDate = getSelectedDate();
       var fileNode = allFileData.find(d => d.date === selectedDate);
       var chartData = fileNode.data;
-      if (getShowDifference()) {
-        chartData = fileNode.diffData;
-      }
-
-      // var chartData = data;
-      // if (getShowDifference()) {
-      //   chartData = diffData;
-      // }
 
       const selectedValue = getSelectedValue();
-      const dataValue = d => d[`${selectedValue}`];
+      const selectedCase = getSelectedCase();
+      const dataField = selectedValue === "24-hour Change" ? "Change" : selectedValue === "24-hour Change Percent" ? "ChangePct" : "";
+      console.log(`${selectedCase}${dataField}`);
+
+      const dataValue = d => d[`${selectedCase}${dataField}`];
+      
+      // const dataValue = d => d[`${selectedValue}`];
 
       d3.select('#chart').selectAll('*').remove();
       var path = d3.geoPath();
@@ -341,7 +337,7 @@
           .on("mouseover", function() { d3.select(this).attr("stroke", "#000").attr("stroke-width", 1).raise(); })
           .on("mouseout", function() { d3.select(this).attr("stroke", "#aaa").attr("stroke-width", 0.5).lower(); })
           .append("title")
-            .text(d => `${d.properties.name}: ${caseCountMap.get(d.id) ? caseCountMap.get(d.id) : 0}${getShowDifference() ? "%" : ""}`);
+            .text(d => `${d.properties.name}: ${caseCountMap.get(d.id) ? caseCountMap.get(d.id) : 0}${selectedValue === "24-hour Change Percent" ? "%" : ""}`);
 
       g.append("path")
         .attr("stroke-width", 0.5)
@@ -354,8 +350,8 @@
         .attr("transform", "translate(610, 20)")
         .append(() => legend({
           color, 
-          title: getShowDifference() ? '24-Hour Change (%)' : 'Case Counts',
-          width: 260, tickFormat: getShowDifference() ? "d" : ","
+          title: selectedValue === "24-hour Change Percent" ? '24-hour Change (%)' : selectedValue === "24-hour Change" ? '24-hour Change' : 'Case Counts',
+          width: 260, tickFormat: selectedValue === "24-hour Change Percent" ? "d" : ","
         }));
 
       function legend({
