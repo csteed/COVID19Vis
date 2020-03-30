@@ -32,11 +32,11 @@
     </style>
   </head>
   <body>
-    <h2 id="titleHeader"> COVID-19 U.S. Choropleth Map of County Level Cases</h2>
+    <h2 id="titleHeader">COVID-19 U.S. Choropleth Map of County Level Cases</h2>
     <p>
       <strong>Data Source:</strong> <a href="https://github.com/CSSEGISandData/COVID-19" target="_blank">Johns Hopkins University CSSE</a> data repository.<br/>
       <strong>Map Data Source:</strong> <a href="https://github.com/topojson/us-atlas" target="_blank">U.S. Atlas TopoJSON from the U.S. Census Bureau</a> (conic equal-area Albers projection)<br/>
-      <strong>Author:</strong> <a href="https://csteed.com" target="_blank">Chad A. Steed</a>, <a href="https://ornl.gov" target="_blank">Oak Ridge National Laboratory</a>
+      <strong>Author:</strong> <a href="https://csteed.com" target="_blank">Chad A. Steed</a>, <a href="https://vis.ornl.gov" target="_blank">VISTA Laboratory</a> / <a href="https://www.ornl.gov/division/csmd" target="_blank">Computer Science and Mathematics Division</a>, <a href="https://ornl.gov" target="_blank">Oak Ridge National Laboratory</a>
     </p>
 
     <label for='dateSelect'>Date: </label>
@@ -61,22 +61,23 @@
 
     <div id='chart'></div>
     
+    <center>
+      <h4>&copy; <a href="https://www.ornl.gov">Oak Ridge National Laboratory</a>
+          <script type="text/javascript">
+              document.write(new Date().getFullYear());
+          </script>
+      </h4>
+    </center>
   </body>
 
   <script>
     const titleText = "COVID-19 U.S. Choropleth Map of County Level Cases";
     var width = 1000, height = 610;
-    // var covidFileRemote = 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports/03-24-2020.csv';
-    // var covidFileLocal = 'data/daily/03-29-2020.csv';
-    // var covidFileLocalPrev = 'data/daily/03-28-2020.csv';
+    var us;
+    var allFileData;
     const formatDate = d3.timeFormat("%m-%d-%Y");
     const parseDate = d3.timeParse("%m-%d-%Y");
-    var us;
-    // var data;
-    // var prevData;
-    // var diffData;
     const earliestDate = new Date(2020, 2, 23);
-    var allFileData;
     const ustopologyFilename = 'data/counties-albers-10m.json';
     const remoteFilenamePrefix = 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports/';
 
@@ -88,12 +89,12 @@
       allFileData.map(d => {
         select.options[select.options.length] = new Option(d.date);
       });      
-    }
+    };
 
     const getSelectedDate = () => {
       const select = document.getElementById('dateSelect');
       return select.options[select.selectedIndex].text;
-    }
+    };
 
     const getSelectedValue = () => {
       const select = document.getElementById('valueSelect');
@@ -102,26 +103,26 @@
 
     const setTitleText = () => {
       const newText = `${titleText} (${getSelectedCase()}, ${getSelectedValue()}, ${getSelectedDate()})`;
-      console.log(newText);
+      // console.log(newText);
       document.getElementById('titleHeader').innerHTML = newText;
     };
 
     const getSelectedCase = () => {
       const select = document.getElementById('caseSelect');
       return select.options[select.selectedIndex].text;
-    }
+    };
 
     const caseSelectChanged = () => {
       createChart();
-    }
+    };
 
     const valueSelectChanged = () => {
       createChart();
-    }
+    };
 
     const dateSelectChanged = () => {
       createChart();
-    }
+    };
     // var projection = d3.geoAlbersUsa().scale(1300).translate([487.5, 305])
     // var path = d3.geoPath();
     // console.log("here");
@@ -154,18 +155,23 @@
           currentDate.setDate(currentDate.getDate() - 1);
       }
 
-      console.log(remoteFilenames);
+      // console.log(remoteFilenames);
 
       d3.json(ustopologyFilename)
         .then(topology => {
           us = topology;
-          console.log(us);
+          // console.log(us);
         })
         .then(() => {
-          console.log('loading data files');
+          // console.log('loading data files');
           Promise.all(remoteFilenames.map(f => d3.csv(f)))
             .then((d) => {
               d.forEach((v, i) => {
+                v.forEach(t => {
+                  t.Confirmed = +t.Confirmed;
+                  t.Deaths = +t.Deaths;
+                  t.Recovered = +t.Recovered;
+                });
                 allFileData.push({
                   date: fileDates[i],
                   data: v
@@ -173,7 +179,7 @@
               });
 
               allFileData.sort((a, b) => d3.descending(parseDate(a.date), parseDate(b.date)));
-              console.log(allFileData);
+              // console.log(allFileData);
               calculateDailyChange(allFileData);
               populateDateSelect();
               createChart();
@@ -190,7 +196,7 @@
     const calculateDailyChange = (data) => {
       data.forEach((f, i) => {
         var diffData = [];
-        console.log(f.date);
+        // console.log(f.date);
         if (i < data.length - 1) {
           f.data.forEach(d => {
             const prev_d = data[i+1].data.find(p => p.FIPS === d.FIPS);
@@ -212,7 +218,6 @@
       });
     };
 
-    loadFiles();
 /*
     d3.json('data/counties-albers-10m.json')
       .then(topology => {
@@ -291,7 +296,7 @@
       const selectedValue = getSelectedValue();
       const selectedCase = getSelectedCase();
       const dataField = selectedValue === "24-hour Change" ? "Change" : selectedValue === "24-hour Change Percent" ? "ChangePct" : "";
-      console.log(`${selectedCase}${dataField}`);
+      // console.log(`${selectedCase}${dataField}`);
 
       const dataValue = d => d[`${selectedCase}${dataField}`];
       
@@ -501,6 +506,8 @@
         return canvas;
       }
     };
+
+    loadFiles();
   </script>
   
   </html>

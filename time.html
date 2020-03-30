@@ -64,6 +64,13 @@
     <h3>Charts:</h3>
     <div id="charts"></div>
 
+    <center>
+      <h4>&copy; <a href="https://www.ornl.gov">Oak Ridge National Laboratory</a>
+          <script type="text/javascript">
+              document.write(new Date().getFullYear());
+          </script>
+      </h4>
+    </center>
   </body>
 
   <script>
@@ -379,6 +386,8 @@
           .style("mix-blend-mode", "multiply")
           .attr("d", d => line(d.values));
 
+      const format = d3.format(",");
+        
       function hover(svg, path) {
         if ("ontouchstart" in document) svg
             .style("-webkit-tap-highlight-color", "transparent")
@@ -428,7 +437,7 @@
           // path.attr("stroke", d => d === s ? null : "#ddd").filter(d => d === s).raise();
           
           dot.attr("transform", `translate(${x(data.dates[i])},${y(s.values[i])})`);
-          dot.select("text").text(`${s.name}: ${s.values[i]}`);
+          dot.select("text").text(`${s.name}: ${format(s.values[i])}`);
         }
 
         function entered() {

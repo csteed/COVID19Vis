@@ -29,79 +29,189 @@
       a {
         text-decoration: none;
       }
-
-      /* path {
-        fill: #ccc;
-        stroke: #fff;
-        stroke-width: .5px;
-      } */
-
-      /* path:hover {
-        fill: red;
-      }  */
     </style>
   </head>
   <body>
-    <h2> COVID-19 U.S. Map of County Level Cases (Updated March 29, 2020)</h2>
+    <h2 id="titleHeader">COVID-19 U.S. Map of County Level Cases</h2>
     <p>
       <strong>Data Source:</strong> <a href="https://github.com/CSSEGISandData/COVID-19" target="_blank">Johns Hopkins University CSSE</a> data repository.<br/>
       <strong>Map Data Source:</strong> <a href="https://github.com/topojson/us-atlas" target="_blank">U.S. Atlas TopoJSON from the U.S. Census Bureau</a> (conic equal-area Albers projection)<br/>
-      <strong>Author:</strong> <a href="https://csteed.com" target="_blank">Chad A. Steed</a>, <a href="https://ornl.gov" target="_blank">Oak Ridge National Laboratory</a>
+      <strong>Author:</strong> <a href="https://csteed.com" target="_blank">Chad A. Steed</a>, <a href="https://vis.ornl.gov" target="_blank">VISTA Laboratory</a> / <a href="https://www.ornl.gov/division/csmd" target="_blank">Computer Science and Mathematics Division</a>, <a href="https://ornl.gov" target="_blank">Oak Ridge National Laboratory</a>
     </p>
 
-    <label for='valueSelect'>Select Value: </label>
-    <select id='valueSelect' onChange="valueSelectChanged()">
+    <label for='dateSelect'>Date: </label>
+    <select id='dateSelect' onChange="dateSelectChanged()">
+    </select>
+    <br/><br/>
+
+    <label for='caseSelect'>Select Case Type: </label>
+    <select id='caseSelect' onChange="caseSelectChanged()">
       <option selected>Confirmed</option>
       <option>Deaths</option>
       <!-- <option>Recovered</option> -->
-    </select><br/><br/>
-
-    <input type='checkbox' id="showDiffCheck" onChange="showDiffCheckChanged()"/>
-    <label for='showDiffCheck'>Show % change from previous day</label>
+    </select>
     <br/><br/>
 
+    <label for='valueSelect'>Select Value: </label>
+    <select id='valueSelect' onChange="valueSelectChanged()">
+      <option selected>Total Count</option>
+      <option>24-hour Change</option>
+      <option>24-hour Change Percent</option>
+    </select>
+
     <div id='chart'></div>
+
+    <center>
+      <h4>&copy; <a href="https://www.ornl.gov">Oak Ridge National Laboratory</a>
+          <script type="text/javascript">
+              document.write(new Date().getFullYear());
+          </script>
+      </h4>
+    </center>
   </body>
 
   <script>
+    const titleText = "COVID-19 U.S. Map of County Level Cases";
     var width = 1000, height = 610;
-    // var covidFileRemote = 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports/03-24-2020.csv';
-    var covidFileLocal = 'data/daily/03-29-2020.csv';
-    var covidFileLocalPrev = 'data/daily/03-28-2020.csv';
     var us;
-    var data;
-    var prevData;
-    var diffData;
+    var allFileData;
+    const formatDate = d3.timeFormat("%m-%d-%Y");
+    const parseDate = d3.timeParse("%m-%d-%Y");
+    const earliestDate = new Date(2020, 2, 23);
+    const ustopologyFilename = 'data/counties-albers-10m.json';
+    const remoteFilenamePrefix = 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports/';
 
-    // var today = new Date();
-    // const formatDate = d3.timeFormat("%m-%d-%Y")
-    // const todayFilename = `${formatDate(today)}.csv`;
-    // console.log(todayFilename);
-    // console.log(`${today.getMonth()}-${today.getDate()}-${today.getFullYear()}`);
+    const populateDateSelect = () => {
+      const select = document.getElementById('dateSelect');
+      for (let i = select.options.length; i >= 0; i--) {
+        select.remove(i);
+      }
+      allFileData.map(d => {
+        select.options[select.options.length] = new Option(d.date);
+      });      
+    };
+    
+    const getSelectedDate = () => {
+      const select = document.getElementById('dateSelect');
+      return select.options[select.selectedIndex].text;
+    };
 
     const getSelectedValue = () => {
       const select = document.getElementById('valueSelect');
       return select.options[select.selectedIndex].text;
     };
 
-    const getShowDifference = () => {
-      return document.getElementById('showDiffCheck').checked;
-    }
+    const setTitleText = () => {
+      const newText = `${titleText} (${getSelectedCase()}, ${getSelectedValue()}, ${getSelectedDate()})`;
+      // console.log(newText);
+      document.getElementById('titleHeader').innerHTML = newText;
+    };
 
-    const showDiffCheckChanged = () => {
+    const getSelectedCase = () => {
+      const select = document.getElementById('caseSelect');
+      return select.options[select.selectedIndex].text;
+    };
+
+    const caseSelectChanged = () => {
       createChart();
-    }
+    };
 
     const valueSelectChanged = () => {
       createChart();
-    }
-    // var projection = d3.geoAlbersUsa().scale(1300).translate([487.5, 305])
-    // var path = d3.geoPath();
-    // console.log("here");
-    // var svg = d3.select("#chart").append("svg")
-    //   .attr("width", width)
-    //   .attr("height", height);
-    
+    };
+
+    const dateSelectChanged = () => {
+      createChart();
+    };
+
+    const URLExists = (url) => {
+      var http = new XMLHttpRequest();
+      http.open('HEAD', url, false);
+      http.send();
+      return http.status != 404;
+    };
+
+    const loadFiles = () => {
+      allFileData = [];
+      var remoteFilenames = [];
+      var fileDates = [];
+      var currentDate = new Date();
+      while (currentDate.getFullYear() >= earliestDate.getFullYear() &&
+        currentDate.getMonth() >= earliestDate.getMonth() &&
+        currentDate.getDate() >= earliestDate.getDate()) {
+          const fileDate = formatDate(currentDate);
+          var remoteFilename = remoteFilenamePrefix + fileDate + ".csv"
+          if (URLExists(remoteFilename)) {
+            remoteFilenames.push(remoteFilename);
+            fileDates.push(fileDate);
+          }
+          currentDate.setDate(currentDate.getDate() - 1);
+      }
+
+      // console.log(remoteFilenames);
+
+      d3.json(ustopologyFilename)
+        .then(topology => {
+          us = topology;
+          // console.log(us);
+        })
+        .then(() => {
+          // console.log('loading data files');
+          Promise.all(remoteFilenames.map(f => d3.csv(f)))
+            .then((d) => {
+              d.forEach((v, i) => {
+                v.forEach(t => {
+                  t.Confirmed = +t.Confirmed;
+                  t.Deaths = +t.Deaths;
+                  t.Recovered = +t.Recovered;
+                });
+                allFileData.push({
+                  date: fileDates[i],
+                  data: v
+                });
+              });
+
+              allFileData.sort((a, b) => d3.descending(parseDate(a.date), parseDate(b.date)));
+              // console.log(allFileData);
+              calculateDailyChange(allFileData);
+              populateDateSelect();
+              createChart();
+            })
+            .catch((error) => {
+              console.log(error);
+            });
+        })
+        .catch(error => {
+          console.log(error);
+        });
+    };
+
+    const calculateDailyChange = (data) => {
+      data.forEach((f, i) => {
+        var diffData = [];
+        // console.log(f.date);
+        if (i < data.length - 1) {
+          f.data.forEach(d => {
+            const prev_d = data[i+1].data.find(p => p.FIPS === d.FIPS);
+            if (prev_d) {
+              d.ConfirmedChange = d.Confirmed - prev_d.Confirmed;
+              d.ConfirmedChangePct = prev_d.Confirmed > 0 ? ((d.Confirmed - prev_d.Confirmed) / prev_d.Confirmed) * 100. : 0;
+              d.DeathsChange = d.Deaths - prev_d.Deaths;
+              d.DeathsChangePct = prev_d.Deaths > 0 ? ((d.Deaths - prev_d.Deaths) / prev_d.Deaths) * 100. : 0;
+            }
+          });
+        } else {
+          f.data.forEach(d => {
+            d.ConfirmedChange = 0;
+            d.ConfirmedChangePct = 0;
+            d.DeathsChange = 0;
+            d.DeathsChangePct = 0;
+          });
+        }
+      });
+    };
+
+    /*
     d3.json('data/counties-albers-10m.json')
       .then(topology => {
         us = topology;
@@ -167,18 +277,27 @@
       .catch(error => {
         console.log(error);
       });
+    */
 
     const createChart = () => {
-      // console.log(us);
-      // console.log(data);
+      setTitleText();
 
-      var chartData = data;
-      if (getShowDifference()) {
-        chartData = diffData;
-      }
+      const selectedDate = getSelectedDate();
+      var fileNode = allFileData.find(d => d.date === selectedDate);
+      var chartData = fileNode.data;
 
       const selectedValue = getSelectedValue();
-      const dataValue = d => d[`${selectedValue}`];
+      const selectedCase = getSelectedCase();
+      const dataField = selectedValue === "24-hour Change" ? "Change" : selectedValue === "24-hour Change Percent" ? "ChangePct" : "";
+      const dataValue = d => d[`${selectedCase}${dataField}`];
+
+      // var chartData = data;
+      // if (getShowDifference()) {
+      //   chartData = diffData;
+      // }
+
+      // const selectedValue = getSelectedValue();
+      // const dataValue = d => d[`${selectedValue}`];
       // const dataValue = selectedValue === 'Confirmed' ? d => d.Confirmed : selectedValue === 'Deaths' ? d => d.Deaths : d => d.Recovered;
 
       d3.select('#chart').selectAll('*').remove();
@@ -235,7 +354,7 @@
         .domain(d3.extent(features, d => d.value));
 
       const radius = d3.scaleSqrt([0, d3.quantile([...caseCountMap.values()].sort(d3.ascending), 0.985)], [0, 15])
-      console.log(features);
+      // console.log(features);
 
       g.append("g")
         .attr("fill", "brown")
@@ -247,12 +366,11 @@
         .join("circle")
           .attr("transform", d => `translate(${path.centroid(d)})`)
           .attr("r", d => radius(d.value))
-          // .attr("fill", d => {console.log(color(d.value)); return color(d.value)} )
         .append("title")
-          .text(d => `${d.properties.name} ${format(d.value)}${getShowDifference() ? "%" : ""}`);
+          .text(d => `${d.properties.name} ${format(d.value)}${selectedValue === "24-hour Change Percent" ? "%" : ""}`);
     };
 
-    
+    loadFiles();
   </script>
   
   </html>
