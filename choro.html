@@ -324,9 +324,11 @@
         .attr("stroke-linejoin", "round")
         .attr("stroke-linecap", "round");
 
+      const pctFormat = d3.format('.1f');
       g.selectAll("path")
         .data(counties)
         .enter().append("path")
+          .attr("class", "county")
           .attr("stroke", "#aaa")
           .attr("stroke-width", 0.5)
           .attr("fill", d => {
@@ -339,11 +341,43 @@
             }
           })
           .attr("d", path)
-          .on("mouseover", function() { d3.select(this).attr("stroke", "#000").attr("stroke-width", 1).raise(); })
-          .on("mouseout", function() { d3.select(this).attr("stroke", "#aaa").attr("stroke-width", 0.5).lower(); })
-          .append("title")
-            .text(d => `${d.properties.name}: ${caseCountMap.get(d.id) ? caseCountMap.get(d.id) : 0}${selectedValue === "24-hour Change Percent" ? "%" : ""}`);
+          .on("mouseover", function(d) {
+            d3.select(this).attr("stroke", "#000").attr("stroke-width", 1).raise();
+            tooltip.call(callout,
+              `${d.properties.name}: ${caseCountMap.get(d.id) ? selectedValue === "24-hour Change Percent" ? pctFormat(caseCountMap.get(d.id)) : caseCountMap.get(d.id) : 0}${selectedValue === "24-hour Change Percent" ? "%" : ""}`).raise();
+          })
+          .on("mousemove", function() {
+            tooltip.attr(
+              "transform",
+              `translate(${d3.mouse(this)[0]},${d3.mouse(this)[1]})`
+            );
+          })
+          .on("mouseout", function() { 
+            tooltip.call(callout, null);
+            d3.select(this).attr("stroke", "#aaa").attr("stroke-width", 0.5).lower(); 
+          });
+          // .append("title")
+          //   .text(d => `${d.properties.name}: ${caseCountMap.get(d.id) ? caseCountMap.get(d.id) : 0}${selectedValue === "24-hour Change Percent" ? "%" : ""}`);
 
+      const tooltip = g.append("g");
+      // g.selectAll(".county")
+      //     .on("mouseover touchover", d => {
+      //       console.log(d);
+      //       tooltip.call(callout,
+      //         `${d.properties.name}: ${caseCountMap.get(d.id) ? caseCountMap.get(d.id) : 0}${selectedValue === "24-hour Change Percent" ? "%" : ""}`)
+      //     })
+      //     .on("mousemove touchmove", d => {
+      //       console.log(d);
+      //       tooltip.attr(
+      //         "transform",
+      //         `translate(${d3.mouse(this)[0]},${d3.mouse(this)[1]})`
+      //       );
+      //     })
+      //     .on("mouseout touchout", d => {
+      //       console.log(d);
+      //       tooltip.call(callout, null);
+      //     });
+      
       g.append("path")
         .attr("stroke-width", 0.5)
         .attr("d", path(states));
@@ -506,6 +540,39 @@
         return canvas;
       }
     };
+
+    const callout = (g, value) => {
+      if (!value) return g.style("display", "none");
+
+      g.style("display", null)
+        .style("pointer-events", "none")
+        .style("font", "10px sans-serif");
+
+      const path = g.selectAll("path")
+        .data([null])
+        .join("path")
+          .attr("fill", "white")
+          .attr("stroke", "black");
+
+      const text = g.selectAll("text")
+        .data([null])
+        .join("text")
+        .call(text => text
+          .selectAll("tspan")
+          .data((value + "").split(/\n/))
+          .join("tspan")
+            .attr("x", 0)
+            .attr("y", (d, i) => `${i * 1.1}em`)
+            .style("fill", 'black')
+            .style("stroke", 'none')
+            .style("font-weight", (_, i) => i ? null : "bold")
+            .text(d => d));
+
+      const {x, y, width: w, height: h} = text.node().getBBox();
+
+      text.attr("transform", `translate(${-w / 2},${15 - y})`);
+      path.attr("d", `M${-w / 2 - 10},5H-5l5,-5l5,5H${w / 2 + 10}v${h + 20}h-${w + 20}z`);
+    }
 
     loadFiles();
   </script>
