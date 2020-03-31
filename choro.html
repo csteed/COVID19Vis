@@ -341,18 +341,18 @@
             }
           })
           .attr("d", path)
-          .on("mouseover", function(d) {
+          .on("mouseover touchover", function(d) {
             d3.select(this).attr("stroke", "#000").attr("stroke-width", 1).raise();
             tooltip.call(callout,
               `${d.properties.name}: ${caseCountMap.get(d.id) ? selectedValue === "24-hour Change Percent" ? pctFormat(caseCountMap.get(d.id)) : caseCountMap.get(d.id) : 0}${selectedValue === "24-hour Change Percent" ? "%" : ""}`).raise();
           })
-          .on("mousemove", function() {
+          .on("mousemove touchmove", function() {
             tooltip.attr(
               "transform",
               `translate(${d3.mouse(this)[0]},${d3.mouse(this)[1]})`
             );
           })
-          .on("mouseout", function() { 
+          .on("mouseout touchout", function() { 
             tooltip.call(callout, null);
             d3.select(this).attr("stroke", "#aaa").attr("stroke-width", 0.5).lower(); 
           });
