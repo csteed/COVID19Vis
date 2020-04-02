@@ -143,10 +143,17 @@
       var remoteFilenames = [];
       var fileDates = [];
       var currentDate = new Date();
-      while (currentDate.getFullYear() >= earliestDate.getFullYear() &&
-        currentDate.getMonth() >= earliestDate.getMonth() &&
-        currentDate.getDate() >= earliestDate.getDate()) {
+      // console.log(currentDate.getFullYear() >= earliestDate.getFullYear());
+      // console.log(currentDate.getMonth() >= earliestDate.getMonth());
+      // console.log(currentDate.getDate() >= earliestDate.getDate());
+      // console.log(currentDate.getTime());
+      // console.log(earliestDate.getTime());
+      while (currentDate.getTime() >= earliestDate.getTime()) {
+      // while (currentDate.getFullYear() >= earliestDate.getFullYear() &&
+      //   currentDate.getMonth() >= earliestDate.getMonth() &&
+      //   currentDate.getDate() >= earliestDate.getDate()) {
           const fileDate = formatDate(currentDate);
+          // console.log(fileDate);
           var remoteFilename = remoteFilenamePrefix + fileDate + ".csv"
           if (URLExists(remoteFilename)) {
             remoteFilenames.push(remoteFilename);
@@ -316,6 +323,12 @@
       // console.log(caseCountMap);
 
       const color = d3.scaleSequentialQuantile([...caseCountMap.values()], d3.interpolateOrRd);
+      // const color = d3.scaleQuantize(d3.extent([...caseCountMap.values()]), d3.schemeOrRd[9]);
+      // const color = d3.scaleQuantile().domain([...caseCountMap.values()]).range(d3.schemeOrRd[9]);
+
+      // console.log([...caseCountMap.values()]);
+      // console.log(d3.extent([...caseCountMap.values()]));
+      // console.log(color.domain());
 
       const g = svg.append("g")
         .attr('class', 'mapcontainer')

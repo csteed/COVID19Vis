@@ -136,9 +136,10 @@
       var remoteFilenames = [];
       var fileDates = [];
       var currentDate = new Date();
-      while (currentDate.getFullYear() >= earliestDate.getFullYear() &&
-        currentDate.getMonth() >= earliestDate.getMonth() &&
-        currentDate.getDate() >= earliestDate.getDate()) {
+      while (currentDate.getTime() >= earliestDate.getTime()) {
+      // while (currentDate.getFullYear() >= earliestDate.getFullYear() &&
+      //   currentDate.getMonth() >= earliestDate.getMonth() &&
+      //   currentDate.getDate() >= earliestDate.getDate()) {
           const fileDate = formatDate(currentDate);
           var remoteFilename = remoteFilenamePrefix + fileDate + ".csv"
           if (URLExists(remoteFilename)) {
