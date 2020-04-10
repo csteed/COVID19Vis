@@ -170,7 +170,7 @@
           }))
           .then(data => {
             countyPop = data;
-            console.log(countyPop);
+            // console.log(countyPop);
           })
           .catch(error => {
             console.log(error);
@@ -195,7 +195,7 @@
               calculatePopAdjustedCounts(allFileData);
               calculateDailyChange(allFileData);
               populateDateSelect();
-              console.log(allFileData);
+              // console.log(allFileData);
               createChart();
             })
             .catch((error) => {
@@ -256,7 +256,7 @@
       const selectedCase = getSelectedCase();
       const dataField = selectedValue === "24-hour Change" ? "Change" : selectedValue === "24-hour Change Percent" ? "ChangePct" : selectedValue === "Total Count, Population Adjusted (per 1000 people)" ? "PopAdjust" : "";
 
-      console.log(`${selectedCase}${dataField}`);
+      // console.log(`${selectedCase}${dataField}`);
 
       const dataValue = d => d[`${selectedCase}${dataField}`];
       
@@ -320,23 +320,6 @@
           //   .text(d => `${d.properties.name}: ${caseCountMap.get(d.id) ? caseCountMap.get(d.id) : 0}${selectedValue === "24-hour Change Percent" ? "%" : ""}`);
 
       const tooltip = g.append("g");
-      // g.selectAll(".county")
-      //     .on("mouseover touchover", d => {
-      //       console.log(d);
-      //       tooltip.call(callout,
-      //         `${d.properties.name}: ${caseCountMap.get(d.id) ? caseCountMap.get(d.id) : 0}${selectedValue === "24-hour Change Percent" ? "%" : ""}`)
-      //     })
-      //     .on("mousemove touchmove", d => {
-      //       console.log(d);
-      //       tooltip.attr(
-      //         "transform",
-      //         `translate(${d3.mouse(this)[0]},${d3.mouse(this)[1]})`
-      //       );
-      //     })
-      //     .on("mouseout touchout", d => {
-      //       console.log(d);
-      //       tooltip.call(callout, null);
-      //     });
       
       g.append("path")
         .attr("stroke-width", 0.5)
@@ -503,7 +486,7 @@
     };
 
     const callout = (g, value) => {
-      console.log(value);
+      // console.log(value);
       if (!value) return g.style("display", "none");
 
       g.style("display", null)
