@@ -34,8 +34,9 @@
   <body>
     <h2 id="titleHeader">COVID-19 U.S. Choropleth Map of County Level Cases</h2>
     <p>
-      <strong>Data Source:</strong> <a href="https://github.com/CSSEGISandData/COVID-19" target="_blank">Johns Hopkins University CSSE</a> data repository.<br/>
-      <strong>Map Data Source:</strong> <a href="https://github.com/topojson/us-atlas" target="_blank">U.S. Atlas TopoJSON from the U.S. Census Bureau</a> (conic equal-area Albers projection)<br/>
+      <strong>COVID-19 Data:</strong> <a href="https://github.com/CSSEGISandData/COVID-19" target="_blank">Johns Hopkins University CSSE</a> data repository<br/>
+      <strong>Map Data:</strong> <a href="https://github.com/topojson/us-atlas" target="_blank">U.S. Atlas TopoJSON from the U.S. Census Bureau</a> (conic equal-area Albers projection)<br/>
+      <strong>Population Data:</strong> <a href="https://www.census.gov/data/tables/time-series/demo/popest/2010s-counties-total.html" target="_blank">US Census Bureau</a><br/>
       <strong>Author:</strong> <a href="https://csteed.com" target="_blank">Chad A. Steed</a> & Erik Schmidt, <a href="https://vis.ornl.gov" target="_blank">VISTA Laboratory</a> | <a href="https://www.ornl.gov/division/csmd" target="_blank">Computer Science and Mathematics Division</a>, <a href="https://ornl.gov" target="_blank">Oak Ridge National Laboratory</a>
     </p>
 
@@ -54,7 +55,8 @@
 
     <label for='valueSelect'>Select Value: </label>
     <select id='valueSelect' onChange="valueSelectChanged()">
-      <option selected>Total Count</option>
+      <option selected>Total Count, Population Adjusted (per 1000 people)</option>
+      <option>Total Count</option>
       <option>24-hour Change</option>
       <option>24-hour Change Percent</option>
     </select>
@@ -75,11 +77,13 @@
     var width = 1000, height = 610;
     var us;
     var allFileData;
+    var countyPop;
     const formatDate = d3.timeFormat("%m-%d-%Y");
     const parseDate = d3.timeParse("%m-%d-%Y");
     const earliestDate = new Date(2020, 2, 23);
     const ustopologyFilename = 'data/counties-albers-10m.json';
     const remoteFilenamePrefix = 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports/';
+    const countyCensusFilename = 'data/county_census_population_est_2019.csv';
 
     const populateDateSelect = () => {
       const select = document.getElementById('dateSelect');
@@ -143,17 +147,8 @@
       var remoteFilenames = [];
       var fileDates = [];
       var currentDate = new Date();
-      // console.log(currentDate.getFullYear() >= earliestDate.getFullYear());
-      // console.log(currentDate.getMonth() >= earliestDate.getMonth());
-      // console.log(currentDate.getDate() >= earliestDate.getDate());
-      // console.log(currentDate.getTime());
-      // console.log(earliestDate.getTime());
       while (currentDate.getTime() >= earliestDate.getTime()) {
-      // while (currentDate.getFullYear() >= earliestDate.getFullYear() &&
-      //   currentDate.getMonth() >= earliestDate.getMonth() &&
-      //   currentDate.getDate() >= earliestDate.getDate()) {
           const fileDate = formatDate(currentDate);
-          // console.log(fileDate);
           var remoteFilename = remoteFilenamePrefix + fileDate + ".csv"
           if (URLExists(remoteFilename)) {
             remoteFilenames.push(remoteFilename);
@@ -162,15 +157,26 @@
           currentDate.setDate(currentDate.getDate() - 1);
       }
 
-      // console.log(remoteFilenames);
-
       d3.json(ustopologyFilename)
         .then(topology => {
           us = topology;
-          // console.log(us);
         })
         .then(() => {
-          // console.log('loading data files');
+          d3.csv(countyCensusFilename, ({fips,county,state,population}) => ({
+            fips,
+            county,
+            state,
+            population: +population
+          }))
+          .then(data => {
+            countyPop = data;
+            console.log(countyPop);
+          })
+          .catch(error => {
+            console.log(error);
+          })
+        })
+        .then(() => {
           Promise.all(remoteFilenames.map(f => d3.csv(f)))
             .then((d) => {
               d.forEach((v, i) => {
@@ -186,9 +192,10 @@
               });
 
               allFileData.sort((a, b) => d3.descending(parseDate(a.date), parseDate(b.date)));
-              // console.log(allFileData);
+              calculatePopAdjustedCounts(allFileData);
               calculateDailyChange(allFileData);
               populateDateSelect();
+              console.log(allFileData);
               createChart();
             })
             .catch((error) => {
@@ -200,9 +207,22 @@
         });
     };
 
+    const calculatePopAdjustedCounts = (data) => {
+      data.forEach(f => {
+        f.data.forEach(d => {
+          const pop = countyPop.find(c => c.fips === d.FIPS);
+          
+          if (pop) {
+            d.ConfirmedPopAdjust = (d.Confirmed / pop.population) * 1000.;
+            d.DeathsPopAdjust = (d.Deaths / pop.population) * 1000.;
+          }
+        })
+      })
+    }
+
     const calculateDailyChange = (data) => {
       data.forEach((f, i) => {
-        var diffData = [];
+        // var diffData = [];
         // console.log(f.date);
         if (i < data.length - 1) {
           f.data.forEach(d => {
@@ -225,74 +245,6 @@
       });
     };
 
-/*
-    d3.json('data/counties-albers-10m.json')
-      .then(topology => {
-        us = topology;
-        console.log(us);
-
-        d3.csv(covidFileLocal)
-          .then(function(coviddata) {
-            data = coviddata.filter(d => d['Country_Region'] === 'US' && d.FIPS.length > 0);
-            console.log(data);
-            data.forEach(d => {
-              d.Confirmed = +d.Confirmed;
-              d.Deaths = +d.Deaths;
-              d.Recovered = +d.Recovered;
-            });
-
-            d3.csv(covidFileLocalPrev)
-              .then(function(coviddataprev) {
-                prevData = coviddataprev.filter(d => d['Country_Region'] === 'US' && d.FIPS.length > 0);
-                // console.log(prevData);
-                prevData.forEach(d => {
-                  d.Confirmed = +d.Confirmed;
-                  d.Deaths = +d.Deaths;
-                  d.Recovered = +d.Recovered;
-                });
-                console.log(prevData);
-                diffData = [];
-                data.forEach(d => {
-                  const prev_d = prevData.find(p => p.FIPS === d.FIPS);
-                  if (prev_d) {
-                    diffData.push({
-                      FIPS: d.FIPS,
-                      Confirmed: prev_d.Confirmed > 0 ? ((d.Confirmed - prev_d.Confirmed) / prev_d.Confirmed) * 100. : 0,
-                      Deaths: prev_d.Deaths > 0 ? ((d.Deaths - prev_d.Deaths) / prev_d.Deaths) * 100. : 0
-                    });
-                  // } else {
-                  //   diffData.push({
-                  //     FIPS: d.FIPS,
-                  //     Confirmed: d.Confirmed,
-                  //     Deaths: d.Deaths
-                  //   });
-                  }
-                });
-                console.log(diffData);
-                // data.forEach(d => {
-                //   if (d.FIPS.length > 0) {
-                //     const prev_d = prevData.find(s => s.FIPS === d.FIPS);
-                //     if (prev_d) {
-                //       d.Confirmed = d.Confirmed - prev_d.Confirmed;
-                //       d.Deaths = d.Deaths - prev_d.Deaths;
-                //     }
-                //   }
-                // });
-                createChart();
-              })
-              .catch(function(error) {
-                console.log(error);
-              });
-          })
-          .catch(function(error) {
-            console.log(error);
-          });
-      })
-      .catch(error => {
-        console.log(error);
-      });
-      */
-
     const createChart = () => {
       setTitleText();
 
@@ -302,13 +254,12 @@
 
       const selectedValue = getSelectedValue();
       const selectedCase = getSelectedCase();
-      const dataField = selectedValue === "24-hour Change" ? "Change" : selectedValue === "24-hour Change Percent" ? "ChangePct" : "";
-      // console.log(`${selectedCase}${dataField}`);
+      const dataField = selectedValue === "24-hour Change" ? "Change" : selectedValue === "24-hour Change Percent" ? "ChangePct" : selectedValue === "Total Count, Population Adjusted (per 1000 people)" ? "PopAdjust" : "";
+
+      console.log(`${selectedCase}${dataField}`);
 
       const dataValue = d => d[`${selectedCase}${dataField}`];
       
-      // const dataValue = d => d[`${selectedValue}`];
-
       d3.select('#chart').selectAll('*').remove();
       var path = d3.geoPath();
 
@@ -320,15 +271,10 @@
       const states = topojson.mesh(us, us.objects.states, (a, b) => a !== b);
 
       const caseCountMap = new Map(chartData.filter(d => dataValue(d) > 0).map(d => [d.FIPS, dataValue(d)]));
-      // console.log(caseCountMap);
 
       const color = d3.scaleSequentialQuantile([...caseCountMap.values()], d3.interpolateOrRd);
       // const color = d3.scaleQuantize(d3.extent([...caseCountMap.values()]), d3.schemeOrRd[9]);
       // const color = d3.scaleQuantile().domain([...caseCountMap.values()]).range(d3.schemeOrRd[9]);
-
-      // console.log([...caseCountMap.values()]);
-      // console.log(d3.extent([...caseCountMap.values()]));
-      // console.log(color.domain());
 
       const g = svg.append("g")
         .attr('class', 'mapcontainer')
@@ -338,6 +284,7 @@
         .attr("stroke-linecap", "round");
 
       const pctFormat = d3.format('.1f');
+      const adjFormat = d3.format('.3r');
       g.selectAll("path")
         .data(counties)
         .enter().append("path")
@@ -357,7 +304,7 @@
           .on("mouseover touchover", function(d) {
             d3.select(this).attr("stroke", "#000").attr("stroke-width", 1).raise();
             tooltip.call(callout,
-              `${d.properties.name}: ${caseCountMap.get(d.id) ? selectedValue === "24-hour Change Percent" ? pctFormat(caseCountMap.get(d.id)) : caseCountMap.get(d.id) : 0}${selectedValue === "24-hour Change Percent" ? "%" : ""}`).raise();
+              `${d.properties.name}: ${caseCountMap.get(d.id) ? selectedValue === "24-hour Change Percent" ? pctFormat(caseCountMap.get(d.id)) : selectedValue === "Total Count, Population Adjusted (per 1000 people)" ? adjFormat(caseCountMap.get(d.id)) : caseCountMap.get(d.id) : 0}${selectedValue === "24-hour Change Percent" ? "%" : selectedValue === "Total Count, Population Adjusted (per 1000 people)" ? " per 1000 people" : ""}`).raise();
           })
           .on("mousemove touchmove", function() {
             tooltip.attr(
@@ -402,8 +349,9 @@
         .attr("transform", "translate(610, 20)")
         .append(() => legend({
           color, 
-          title: selectedValue === "24-hour Change Percent" ? '24-hour Change (%)' : selectedValue === "24-hour Change" ? '24-hour Change' : 'Case Counts',
-          width: 260, tickFormat: selectedValue === "24-hour Change Percent" ? "d" : ","
+          title: selectedValue === "24-hour Change Percent" ? '24-hour Change (%)' : selectedValue === "24-hour Change" ? '24-hour Change' : selectedValue === "Total Count, Population Adjusted (per 1000 people)" ? 'Case Counts Population Adjusted (per 1000 people)' : 'Case Counts',
+          width: 260, 
+          tickFormat: selectedValue === "24-hour Change Percent" ? "d" : selectedValue === "Total Count, Population Adjusted (per 1000 people)" ? ".2r" : ","
         }));
 
       function legend({
@@ -555,6 +503,7 @@
     };
 
     const callout = (g, value) => {
+      console.log(value);
       if (!value) return g.style("display", "none");
 
       g.style("display", null)
