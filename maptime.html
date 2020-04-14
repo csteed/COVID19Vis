@@ -362,9 +362,9 @@
         // console.log(series.map(d => [d.fips, d.values[d.values.length-1]]));
 
         const selectedDate = parseTime(getSelectedDate());
-        console.log(selectedDate);
+        // console.log(selectedDate);
         const selectedDateIndex = chartData.allDates.findIndex(d => d.getTime() === selectedDate.getTime());
-        console.log(selectedDateIndex);
+        // console.log(selectedDateIndex);
         const selectedFocusDateIndex = dates.findIndex(d => d.getTime() === selectedDate.getTime());
         // const valueMap = new Map(chartData.allSeries.map(s => [s.fips, getChartValues(s)[getChartValues(s).length-1]]).filter(d => d[1] > 0));
         const valueMap = new Map(chartData.allSeries.map(s => [s.fips, getChartValues(s)[selectedDateIndex]]).filter(d => d[1] > 0));
@@ -521,7 +521,7 @@
       'data/timeseries/time_series_covid19_deaths_US.csv'];
     const remoteFiles = ['https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_US.csv', 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_US.csv']
 
-    // loadFiles(remoteFiles);
-    loadFiles(files);
+    loadFiles(remoteFiles);
+    // loadFiles(files);
   </script>
 </html>
