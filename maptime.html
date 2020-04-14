@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<meta charset="utf-8" />
+<html>
+  <head>
+    <!-- <script src="https://d3js.org/d3.v5.min.js"></script> -->
+    <script src="js/d3.min.js"></script>
+    <script src="js/d3-array.min.js"></script>
+    <script src="https://unpkg.com/topojson@3"></script>
+
+    <style>
+      body {
+        font: 12px sans-serif;
+        margin: 4px 20px 0px 20px;
+        /* background: gray; */
+        background-color: whitesmoke;
+      }
+
+      .top {
+        background-color: whitesmoke;
+        overflow: hidden;
+        position: fixed;
+        top: 0;
+        width: 100%;
+      }
+
+      .main {
+        margin-top: 400px;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>COVID-19 Time Series Heatmap + Choropleth Visualization</h2>
+    <strong>Data Source:</strong> <a href="https://github.com/CSSEGISandData/COVID-19" target="_blank">Johns Hopkins University CSSE</a> data repository.<br/>
+    <strong>Author:</strong> <a href="https://csteed.com" target="_blank">Chad A. Steed</a> & Erik Schmidt, <a href="https://vis.ornl.gov" target="_blank">VISTA Laboratory</a> | <a href="https://www.ornl.gov/division/csmd" target="_blank">Computer Science and Mathematics Division</a>, <a href="https://ornl.gov" target="_blank">Oak Ridge National Laboratory</a><br/><br/>
+
+    <label for="variableSelect">Select Display Parameter: </label>
+    <select id="variableSelect" onChange="variableSelectChanged()">
+      <option selected>Confirmed Cases</option>
+      <option>Deaths</option>
+    </select>
+    <br/><br/>
+
+    <label for="valueSelect">Select Display Value: </label>
+    <select id="valueSelect" onChange="valueSelectChanged()">
+      <option selected>Total Count</option>
+      <option>24-hour Change</option>
+      <!-- <option>24-hour Change Percent</option> -->
+    </select>
+    <br/><br/>
+
+    <label for="stateSelect">Select State/Territory: </label>
+    <select id="stateSelect" onChange="stateSelectChanged()">
+    </select>
+    <br/><br/>
+
+    <label for="dateSelect">Map Data Date: </label>
+    <select id="dateSelect" onChange="dateSelectChanged()"></select>
+    <br/></br/>
+
+    <hr>
+
+    <h3>Chart:</h3>
+    <div id="chart"></div>
+
+    <center>
+      <h4>&copy; <a href="https://www.ornl.gov">Oak Ridge National Laboratory</a>
+          <script type="text/javascript">
+              document.write(new Date().getFullYear());
+          </script>
+      </h4>
+    </center>
+  </body>
+
+  <script>
+    let parseTime = d3.timeParse("%m/%d/%y");
+    let formatDate = d3.timeFormat("%m/%d/%y");
+    let allFileData;
+    let chartData;
+    let rowHeight = 17;
+    let overlap = 8;
+    const margin = {top: 30, right: 20, bottom: 20, left: 160};
+    const ustopologyFilename = 'data/counties-albers-10m.json';
+    let us;
+    const mapHeight = 610;
+    const mapWidth = 1000;
+
+    const removeSpaces = (str) => {
+      return str.replace(/\s+/g, '');
+    };
+
+    const populateDateSelect = () => {
+      const select = document.getElementById('dateSelect');
+      for (let i = select.options.length; i >= 0; i--) {
+        select.remove(i);
+      }
+      const dates = allFileData[0].dates.map(d => d).sort(d3.descending);
+      dates.map(d => {
+        select.options[select.options.length] = new Option(formatDate(d));
+      });
+      // allFileData[0].dates.sort(d3.descending).forEach(d => {
+      //   select.options[select.options.length] = new Option(d);
+      // });
+    }
+
+    const getSelectedDate = () => {
+      const select = document.getElementById('dateSelect');
+      return select.options[select.selectedIndex].text;
+    }
+
+    const dateSelectChanged = () => {
+      createChart();
+    }
+
+    const getSelectedState = () => {
+      const select = document.getElementById('stateSelect');
+      return select.options[select.selectedIndex].text;
+    }
+
+    const getSelectedDisplayValue = () => {
+      const select = document.getElementById('valueSelect');
+      return select.options[select.selectedIndex].text;
+    }
+
+    const getSelectedVariable = () => {
+      const select = document.getElementById('variableSelect');
+      return select.options[select.selectedIndex].text;
+    }
+
+    const variableSelectChanged = () => {
+      createChart();
+    }
+
+    const stateSelectChanged = () => {
+      createChart();
+    }
+
+    const valueSelectChanged = () => {
+      createChart();
+    }
+
+    const populateStateSelect = (states) => {
+      const select = document.getElementById('stateSelect');
+      states.unshift('All States/Provinces');
+      for (let i = select.options.length - 1; i >= 0; i--) {
+        select.remove(i);
+      }
+      states.forEach(state => {
+        select.options[select.options.length] = new Option(state);
+      });
+    };
+
+    const processData = (rawFileData) => {
+      if (rawFileData) {
+        var processedData = [];
+        rawFileData.forEach(fileData => {
+          const nestedData = d3.nest()
+            .key(d => d["Province_State"]).sortKeys(d3.ascending)
+            .key(d => d["Admin2"]).sortKeys(d3.ascending)
+            .entries(fileData.data);
+          
+          console.log(nestedData);
+
+          var dates = [];
+          fileData.data.columns.forEach(column => {
+            const date = parseTime(column);
+            if (date) {
+              dates.push(column);
+            }
+          });
+
+          var states = [];
+          nestedData.forEach(stateNode => {
+            var state = {
+              name: stateNode.key,
+              values: null,
+              counties: [],
+              firstDateIndex: -1
+            };
+
+            stateNode.values.forEach(countyNode => {
+              var values = [...dates.map(date => countyNode.values[0][date])];
+
+              var skip = true;
+              values.forEach(v => {
+                if (v > 0) {
+                  skip = false;
+                }
+              });
+
+              if (!skip) {
+                if (countyNode.key !== "null") {
+                  state.counties.push({
+                    name: countyNode.key,
+                    fips: d3.format("05d")(countyNode.values[0].FIPS),
+                    values: values,
+                    changeValues: getMovingRangeValues(values)
+                  });
+                } else {
+                  state.values = values;
+                  state.changeValues = getMovingRangeValues(values);
+                }
+              }
+            });
+
+            if (!state.values && state.counties.length > 0) {
+              state.values = Array.from(state.counties[0].values);
+              for (let i = 1; i < state.counties.length; i++) {
+                for (let j = 0; j < state.values.length; j++) {
+                  state.values[j] = state.values[j] + state.counties[i].values[j];
+                }
+              }
+              state.changeValues = getMovingRangeValues(state.values);
+            }
+
+            if (state.values) {
+              states.push(state);
+            
+              state.changeValues = getMovingRangeValues(state.values);
+
+              for (let i = 0; i < state.values.length; i++) {
+                if (state.values[i] > 0) {
+                  state.firstDateIndex = i === 0 ? 0 : i - 1;
+                  break;
+                }
+              }
+            }
+          });
+
+          var name = fileData.filename.includes("confirmed") ? "Confirmed" : fileData.filename.includes("deaths") ? "Deaths" : fileData.filename.includes("recovered") ? "Recovered" : "Other";          
+          processedData.push({
+            name: name,
+            title: `${name} Case Counts`,
+            y: "Cases",
+            states: states,
+            dates: dates.map(d => parseTime(d))
+          });
+
+        });
+        console.log(processedData);
+        return processedData;
+      }
+    };
+
+    const getMovingRangeValues = (values) => {
+      let movingRangeValues = [];
+      movingRangeValues.push(0);
+      for (let i = 1; i < values.length; i++) {
+        movingRangeValues[i] = values[i] - values[i-1];
+      }
+      return movingRangeValues;
+    }
+
+    const formatTime = d3.timeFormat('%-m/%-d');
+
+    const loadData = () => {
+      chartData = null;
+      if (allFileData) {
+        const fileData = (getSelectedVariable() === "Confirmed Cases") ? allFileData.find(d => d.name === 'Confirmed') : allFileData.find(d => d.name === 'Deaths');
+
+        const allSeries = [];
+        fileData.states.forEach(s => {
+          s.counties.forEach(c => {
+            allSeries.push({
+              name: c.name,
+              fips: c.fips,
+              values: c.values,
+              changeValues: c.changeValues
+            });
+          });
+        });
+
+        if (fileData) {
+          const selectedState = getSelectedState();
+          if (selectedState === 'All States/Provinces') {
+            chartData = {
+              dates: fileData.dates,
+              allDates: fileData.dates,
+              series: fileData.states.map(d => {
+                return {
+                  name: d.name,
+                  values: d.values,
+                  changeValues: d.changeValues
+                };
+              }),
+              allSeries: allSeries
+            };
+          } else {
+            const stateData = fileData.states.find(d => d.name === selectedState);
+
+            if (stateData) {
+              chartData = {
+                dates: fileData.dates.slice(stateData.firstDateIndex, fileData.dates.length),
+                allDates: fileData.dates,
+                series: [],
+                allSeries: allSeries
+              };
+              if (stateData.counties.length > 0) {
+                stateData.counties.forEach(county => {
+                  chartData.series.push({
+                    name: county.name,
+                    fips: county.fips,
+                    values: county.values.slice(stateData.firstDateIndex, county.values.length),
+                    changeValues: county.changeValues.slice(stateData.firstDateIndex, county.changeValues.length)
+                  });
+                });
+              } else {
+                chartData.series.push({
+                  name: stateData.name,
+                  values: stateData.values.slice(stateData.firstDateIndex, stateData.values.length),
+                  changeValues: stateData.changeValues.slice(stateData.firstDateIndex, stateData.values.length),
+                });
+              }
+            }
+          }
+          if (chartData) {
+            chartData.series.sort((a,b) => d3.descending(d3.sum(a.values), d3.sum(b.values)));
+          }
+        }
+      }
+    }
+
+    const createChart = () => {
+      loadData();
+
+      d3.select('#chart').selectAll('*').remove();
+      
+      if (chartData) {
+        console.log(chartData);
+        let dates = chartData.dates.map(d => d);
+        let series = chartData.series;
+        console.log(series);
+
+        d3.select('#chart').selectAll('*').remove();
+
+        const divWidth = document.getElementById('chart').clientWidth;
+        const width = divWidth - margin.left - margin.right;
+        const height = series.length * rowHeight;
+
+        const svg = d3.select('#chart').append("svg")
+          .attr("width", width + margin.left + margin.right)
+          .attr("height", mapHeight + height + margin.top + margin.bottom);
+
+        const g = svg.append("g")
+          .attr("transform", `translate(${margin.left},${margin.top + mapHeight})`);
+
+        let getChartValues;
+        if (getSelectedDisplayValue() === 'Total Count') {
+          getChartValues = d => d.values;
+        } else {
+          getChartValues = d => d.changeValues;
+        }
+
+        let maxDate = new Date(d3.max(dates));
+        maxDate.setDate(maxDate.getDate() + 1);
+        dates.push(maxDate);
+
+        // begin map drawing code
+        const path = d3.geoPath();
+        const counties = topojson.feature(us, us.objects.counties).features;
+        const states = topojson.mesh(us, us.objects.states, (a,b) => a !== b);
+
+        // console.log(series.map(d => [d.fips, d.values[d.values.length-1]]));
+
+        const selectedDate = parseTime(getSelectedDate());
+        console.log(selectedDate);
+        const selectedDateIndex = chartData.allDates.findIndex(d => d.getTime() === selectedDate.getTime());
+        console.log(selectedDateIndex);
+        const selectedFocusDateIndex = dates.findIndex(d => d.getTime() === selectedDate.getTime());
+        // const valueMap = new Map(chartData.allSeries.map(s => [s.fips, getChartValues(s)[getChartValues(s).length-1]]).filter(d => d[1] > 0));
+        const valueMap = new Map(chartData.allSeries.map(s => [s.fips, getChartValues(s)[selectedDateIndex]]).filter(d => d[1] > 0));
+        // console.log(valueMap);
+        const focusValueMap = new Map(series.map(s => [s.fips, getChartValues(s)[selectedFocusDateIndex]]).filter(d => d[1] > 0));
+        // const focusValueMap = new Map(series.map(s => [s.fips, getChartValues(s)[getChartValues(s).length-1]]).filter(d => d[1] > 0));
+        // console.log(valueMap);
+        // d3.interpolateBuPu((t + 0.25) / 2)
+
+        // const focusMapColor = d3.scaleSequentialQuantile([...valueMap.values()], d3.interpolateBuPu);
+        // const mapColor = d3.scaleSequentialQuantile([...valueMap.values()], d3.interpolateGreys);
+        const focusMapColor = d3.scaleSequentialQuantile([...focusValueMap.values()], t => d3.interpolateBuPu((t + 0.15) / 1.5));
+        const mapColor = d3.scaleSequentialQuantile([...valueMap.values()], t => d3.interpolateGreys((t + 0.15) / 2));
+          
+        const mapG = svg.append("g")
+          // .attr("transform", `translate(0,${margin.top})`)
+          .attr('class', 'mapcontainer')
+          .attr('fill', 'none')
+          .attr('stroke', '#000')
+          .attr('stroke-linejoin', 'round')
+          .attr('stroke-linecap', 'round');
+        
+        mapG.selectAll('path')
+          .data(counties)
+          .enter().append('path')
+            .attr('class', 'county')
+            .attr('stroke', '#aaa')
+            .attr('stroke-width', 0.5)
+            // .attr('fill', 'white')
+            .attr('fill', d => {
+              const v = valueMap.get(d.id);
+              if (v) {
+                if (focusValueMap.get(d.id)) {
+                  return focusMapColor(v);
+                } else {
+                  return mapColor(v);
+                }
+              } else {
+                return "#fff";
+              }
+            })
+            .attr('d', path)
+            .append('title')
+              .text(d => `${d.properties.name}`);
+
+        mapG.append('path')
+          .attr('stroke-width', 0.5)
+          .attr('d', path(states));
+
+        mapG.append('path')
+          .attr('d', path(topojson.feature(us, us.objects.nation)));
+
+        // end map drawing code
+
+        const x = d3.scaleTime()
+          .domain([d3.min(dates), maxDate])
+          .range([0, width]);
+          
+        const y = d3.scaleBand()
+          .domain(series.map(d => d.name))
+          .rangeRound([0, height]);
+        
+        const color = d3.scaleSequentialSqrt(t => d3.interpolateBuPu((t + 0.25) / 2))
+          .domain([1, d3.max(series, d => d3.max(getChartValues(d)))]);
+
+        g.append("g")
+          .call(d3.axisTop(x))
+          .call(g => g.select(".domain").remove());
+
+        g.append("g")
+          .attr("class", "axis axis--y")
+          .call(d3.axisLeft(y).tickSize(0))
+          .call(g => g.select(".domain").remove());
+
+        const row = g.append("g")
+          .selectAll("g")
+          .data(series)
+          .join("g")
+            .attr("transform", (d, i) => `translate(0,${y(d.name)})`)
+            .on('mouseover touchover', (d, i) => {
+              d3.select(".axis--y")
+                .selectAll('text')
+                .attr("font-weight", t => t === d.name ? "bold" : "normal");
+            })
+            .on('mouseout touchout', (d, i) => {
+              d3.select(".axis--y")
+                .selectAll('text')
+                .attr("font-weight", "normal");
+            });
+        
+        function format (d) {
+          const f = d3.format(",d");
+          return isNaN(d) ? "N/A cases" 
+            : d === 0 ? "0 cases"
+            : `${f(d)} cases`
+        }
+
+        row.selectAll("rect")
+          .data(d => getChartValues(d))
+          .join("rect")
+            .attr("x", (d, i) => x(dates[i]) + 1)
+            .attr("width", (d, i) => (x(dates[i+1]) - x(dates[i])) - 1)
+            .attr("height", y.bandwidth() - 1)
+            .attr("fill", d => isNaN(d) ? "none" : d === 0 ? "whitesmoke" : color(d))
+            .attr("stroke", "#eee")
+            .attr("stroke-width", 0.5)
+          .append("title")
+            .text((d, i) => `${dates[i]}: ${format(d)}`);
+      }
+    };
+
+    const loadFiles = (filenames) => {
+      if (filenames) {
+        let rawFileData = [];
+        Promise.all(filenames.map(f => d3.csv(f, d3.autoType)))
+          .then(function (d) {
+            for (let i = 0; i < d.length; i++) {
+              rawFileData.push({
+                filename: filenames[i],
+                data: d[i]
+              });
+            }
+
+            let states = new Set();
+            rawFileData.forEach(fileData => {
+              fileData.data.forEach(d => {
+                states.add(d["Province_State"]);
+              });
+            });
+            populateStateSelect([...states].sort(d3.sortAscending));
+
+            allFileData = processData(rawFileData);
+            console.log(allFileData);
+            populateDateSelect();
+            // createChart();
+          })
+          .then(topodata => {
+            d3.json(ustopologyFilename)
+              .then(ustopology => {
+                us = ustopology;
+                createChart();
+              })
+              .catch(error => {
+                console.log(error);
+              });
+          })
+          .catch (error => {
+            console.log(error);
+          });
+      }
+    };
+
+    const files = ['data/timeseries/time_series_covid19_confirmed_US.csv', 
+      'data/timeseries/time_series_covid19_deaths_US.csv'];
+    const remoteFiles = ['https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_US.csv', 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_US.csv']
+
+    // loadFiles(remoteFiles);
+    loadFiles(files);
+  </script>
+</html>
