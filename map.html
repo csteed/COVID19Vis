@@ -150,6 +150,7 @@
       }
 
       // console.log(remoteFilenames);
+      const fipsFormat = d3.format("05d");
 
       d3.json(ustopologyFilename)
         .then(topology => {
@@ -162,6 +163,7 @@
             .then((d) => {
               d.forEach((v, i) => {
                 v.forEach(t => {
+                  t.FIPS = fipsFormat(+t.FIPS)
                   t.Confirmed = +t.Confirmed;
                   t.Deaths = +t.Deaths;
                   t.Recovered = +t.Recovered;
