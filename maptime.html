@@ -10,26 +10,15 @@
     <style>
       body {
         font: 12px sans-serif;
-        margin: 4px 20px 0px 20px;
+        margin: 4px 10px 0px 10px;
         /* background: gray; */
         background-color: whitesmoke;
       }
-
-      .top {
-        background-color: whitesmoke;
-        overflow: hidden;
-        position: fixed;
-        top: 0;
-        width: 100%;
-      }
-
-      .main {
-        margin-top: 400px;
-      }
     </style>
   </head>
+
   <body>
-    <h2>COVID-19 Time Series Heatmap + Choropleth Visualization</h2>
+    <h2>COVID-19 Time Series Heatmap + Choropleth Visualization [Draft]</h2>
     <strong>Data Source:</strong> <a href="https://github.com/CSSEGISandData/COVID-19" target="_blank">Johns Hopkins University CSSE</a> data repository.<br/>
     <strong>Author:</strong> <a href="https://csteed.com" target="_blank">Chad A. Steed</a> & Erik Schmidt, <a href="https://vis.ornl.gov" target="_blank">VISTA Laboratory</a> | <a href="https://www.ornl.gov/division/csmd" target="_blank">Computer Science and Mathematics Division</a>, <a href="https://ornl.gov" target="_blank">Oak Ridge National Laboratory</a><br/><br/>
 
@@ -82,7 +71,8 @@
     const ustopologyFilename = 'data/counties-albers-10m.json';
     let us;
     const mapHeight = 610;
-    const mapWidth = 1000;
+    const mapWidth = 750;
+    const heatWidth = 600;
 
     const removeSpaces = (str) => {
       return str.replace(/\s+/g, '');
@@ -332,16 +322,17 @@
 
         d3.select('#chart').selectAll('*').remove();
 
-        const divWidth = document.getElementById('chart').clientWidth;
-        const width = divWidth - margin.left - margin.right;
+        // const divWidth = document.getElementById('chart').clientWidth;
+        // const width = mapWidth + heatWidth - margin.left - margin.right;
+        // const width = divWidth - margin.left - margin.right;
         const height = series.length * rowHeight;
 
         const svg = d3.select('#chart').append("svg")
-          .attr("width", width + margin.left + margin.right)
-          .attr("height", mapHeight + height + margin.top + margin.bottom);
+          .attr("width", mapWidth + heatWidth + margin.left + margin.right)
+          .attr("height", height + margin.top + margin.bottom);
 
         const g = svg.append("g")
-          .attr("transform", `translate(${margin.left},${margin.top + mapHeight})`);
+          .attr("transform", `translate(${margin.left},${margin.top})`);
 
         let getChartValues;
         if (getSelectedDisplayValue() === 'Total Count') {
@@ -376,11 +367,12 @@
 
         // const focusMapColor = d3.scaleSequentialQuantile([...valueMap.values()], d3.interpolateBuPu);
         // const mapColor = d3.scaleSequentialQuantile([...valueMap.values()], d3.interpolateGreys);
-        const focusMapColor = d3.scaleSequentialQuantile([...focusValueMap.values()], t => d3.interpolateBuPu((t + 0.15) / 1.5));
+        const focusMapColor = d3.scaleSequentialQuantile([...focusValueMap.values()], t => d3.interpolateOrRd((t + 0.15) / 1.5));
         const mapColor = d3.scaleSequentialQuantile([...valueMap.values()], t => d3.interpolateGreys((t + 0.15) / 2));
           
         const mapG = svg.append("g")
-          // .attr("transform", `translate(0,${margin.top})`)
+          .attr("transform", `translate(${heatWidth + margin.left + 80},${margin.top}) scale(0.7)`)
+          // .attr("transform", `scale(0.5)`)
           .attr('class', 'mapcontainer')
           .attr('fill', 'none')
           .attr('stroke', '#000')
@@ -421,17 +413,17 @@
 
         const x = d3.scaleTime()
           .domain([d3.min(dates), maxDate])
-          .range([0, width]);
+          .range([0, heatWidth]);
           
         const y = d3.scaleBand()
           .domain(series.map(d => d.name))
           .rangeRound([0, height]);
         
-        const color = d3.scaleSequentialSqrt(t => d3.interpolateBuPu((t + 0.25) / 2))
+        const color = d3.scaleSequentialSqrt(t => d3.interpolateOrRd((t + 0.25) / 2))
           .domain([1, d3.max(series, d => d3.max(getChartValues(d)))]);
 
         g.append("g")
-          .call(d3.axisTop(x))
+          .call(d3.axisTop(x).ticks(heatWidth / 80))
           .call(g => g.select(".domain").remove());
 
         g.append("g")
@@ -465,6 +457,7 @@
         row.selectAll("rect")
           .data(d => getChartValues(d))
           .join("rect")
+            .attr("rx", 2).attr("ry", 2)
             .attr("x", (d, i) => x(dates[i]) + 1)
             .attr("width", (d, i) => (x(dates[i+1]) - x(dates[i])) - 1)
             .attr("height", y.bandwidth() - 1)

@@ -53,8 +53,8 @@
 
     <label for="stateSelect">Highlight State/Province: </label>
     <select id="stateSelect" onChange="stateSelectChanged()" disabled>
-    </select>
-    <br/><br/> -->
+    </select> -->
+    <br/><br/>
 
     <hr>
 
@@ -82,15 +82,16 @@
     };
 
     const getSelectedCountry = () => {
+      return 'All Countries';
       const select = document.getElementById('countrySelect');
       return select.options[select.selectedIndex].text;
     }
 
     const getSelectedState = () => {
-      const select = document.getElementById('stateSelect');
-      if (select.selectedIndex >= 0 && select.selectedIndex < select.options.length) {
-        return select.options[select.selectedIndex].text;
-      }
+      // const select = document.getElementById('stateSelect');
+      // if (select.selectedIndex >= 0 && select.selectedIndex < select.options.length) {
+      //   return select.options[select.selectedIndex].text;
+      // }
       return null;
     }
 
@@ -121,8 +122,8 @@
     }
 
     const countrySelectChanged = () => {
-      populateStateSelect();
-      createCharts();
+      // populateStateSelect();
+      // createCharts();
     }
 
     const populateCountriesSelect = (countries) => {
@@ -488,13 +489,13 @@
               });
             }
 
-            let countries = new Set();
-            rawFileData.forEach(fileData => {
-              fileData.data.forEach(d => {
-                countries.add(d["Country/Region"]);
-              });
-            });
-            populateCountriesSelect([...countries].sort(d3.sortAscending));
+            // let countries = new Set();
+            // rawFileData.forEach(fileData => {
+            //   fileData.data.forEach(d => {
+            //     countries.add(d["Country/Region"]);
+            //   });
+            // });
+            // populateCountriesSelect([...countries].sort(d3.sortAscending));
 
             allFileData = processData(rawFileData);
             console.log(allFileData);
