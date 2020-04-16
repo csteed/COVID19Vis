@@ -325,7 +325,7 @@
         // const divWidth = document.getElementById('chart').clientWidth;
         // const width = mapWidth + heatWidth - margin.left - margin.right;
         // const width = divWidth - margin.left - margin.right;
-        const height = series.length * rowHeight;
+        const height = series.length * rowHeight > mapHeight ? series.length * rowHeight : mapHeight;
 
         const svg = d3.select('#chart').append("svg")
           .attr("width", mapWidth + heatWidth + margin.left + margin.right)
@@ -514,7 +514,7 @@
       'data/timeseries/time_series_covid19_deaths_US.csv'];
     const remoteFiles = ['https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_US.csv', 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_US.csv']
 
-    loadFiles(remoteFiles);
-    // loadFiles(files);
+    // loadFiles(remoteFiles);
+    loadFiles(files);
   </script>
 </html>
